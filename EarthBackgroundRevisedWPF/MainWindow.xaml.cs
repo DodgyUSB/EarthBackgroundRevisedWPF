@@ -34,12 +34,13 @@ namespace EarthBackgroundRevisedWPF
     {
         EarthBackgroundCore EarthBackground;
         Task<bool> updateTask;
-        Timer timer = new Timer(300000);
+        Timer timer;
         NotifyIcon trayIcon = new NotifyIcon();
         string filePath;
         bool startOnBoot;
         int[] resOptions = new int[] { 1, 2, 4, 8, 16 };
         int res;
+        const int timeIntervalMins = 5;
         const string AppKeyName = "EarthBackround";
 
         public MainWindow()
@@ -61,6 +62,7 @@ namespace EarthBackgroundRevisedWPF
             ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Exit", new EventHandler(ExitApplication)), new MenuItem("Manual Update", new EventHandler(manualUpdate)) });
             trayIcon.ContextMenu = trayMenu;
             EarthBackground = new EarthBackgroundCore(res, filePath);
+            timer = new Timer(timeIntervalMins * 60000);
             timer.Elapsed += Timer_Elapsed;
             timer.Start();
         }
@@ -75,13 +77,15 @@ namespace EarthBackgroundRevisedWPF
         {
             if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
             {
-                updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.rammbSlider);
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.rammbSlider);
             }
         }
 
         private void EarthBackgroundCore_UpdateComplete(object sender, EarthBackgroundCore.UpdateCompleteEventArgs e)
         {
+            EarthBackgroundCore.UpdateComplete -= EarthBackgroundCore_UpdateComplete;
+            Console.WriteLine("update complete exit code: {0}", updateTask.Result);
             if (updateTask.Result)
             {
                 Wallpaper.Set(new Uri(EarthBackground.getLatestImagePath()), Wallpaper.Style.Fit);
@@ -139,6 +143,7 @@ namespace EarthBackgroundRevisedWPF
         private void setParameters()
         {
             filePath = Properties.Settings.Default.imagePath;
+            SavePathInputTextBox.Text = filePath;
             startOnBoot = Properties.Settings.Default.startOnBoot;
             res = Properties.Settings.Default.res;
         }
@@ -148,6 +153,7 @@ namespace EarthBackgroundRevisedWPF
             Properties.Settings.Default.imagePath = filePath;
             Properties.Settings.Default.startOnBoot = startOnBoot;
             Properties.Settings.Default.res = res;
+            Properties.Settings.Default.Save();
         }
 
         private void ResSelectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

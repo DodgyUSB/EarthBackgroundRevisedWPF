@@ -13,6 +13,7 @@ using System.Xml.Schema;
 using System.Threading;
 using System.Diagnostics;
 using Path = System.IO.Path;
+using System.Runtime.CompilerServices;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -26,6 +27,21 @@ namespace EarthBackgroundRevisedWPF
         public static event EventHandler<DownloadStatusChangedEventArgs> DownloadStatusChanged;
         private static event EventHandler<EventArgs> SubImageComplete;
         public static event EventHandler<UpdateCompleteEventArgs> UpdateComplete;
+        private Task updateWaiter;
+        private Action<object> waitForTask = (object obj) =>
+        {
+            Task<bool> task = (Task<bool>)obj;
+            task.Wait();
+            switch (task.Result)
+            {
+                case true:
+                    RaiseUpdateCompleteEvent("Update completed succesfully");
+                    break;
+                case false:
+                    RaiseUpdateCompleteEvent("No new images avaliable");
+                    break;
+            }
+        };
 
         public string getLatestImagePath()
         {
@@ -56,20 +72,13 @@ namespace EarthBackgroundRevisedWPF
 
         private static void RaiseSubImageCompleteEvent()
         {
-            EventHandler<EventArgs> temp = SubImageComplete;
-            if(temp != null)
-            {
-                temp(null, new EventArgs());
-            }
+            SubImageComplete?.Invoke(null, new EventArgs());
         }
 
         private static void RaiseUpdateCompleteEvent(string message)
         {
-            EventHandler<UpdateCompleteEventArgs> temp = UpdateComplete;
-            if(temp != null)
-            {
-                temp(null, new UpdateCompleteEventArgs(message));
-            }
+            Console.WriteLine("raising update complete");
+            UpdateComplete?.Invoke(null, new UpdateCompleteEventArgs(message));
         }
 
         public Task<bool> update(siteOption option)
@@ -79,7 +88,9 @@ namespace EarthBackgroundRevisedWPF
                  activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath));
                  SubImageComplete += EarthBackgroundCore_SubImagecomplete;
                  activeUpdate.Start();
-                UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                 UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                 updateWaiter = new Task(waitForTask, activeUpdate);
+                updateWaiter.Start();
                  return activeUpdate;
              }
              else
@@ -90,7 +101,8 @@ namespace EarthBackgroundRevisedWPF
 
         private void EarthBackgroundCore_UpdateComplete(object sender, UpdateCompleteEventArgs e)
         {
-            //activeUpdate.Dispose();
+            SubImageComplete -= EarthBackgroundCore_SubImagecomplete;
+            UpdateComplete -= EarthBackgroundCore_UpdateComplete;
         }
 
         private void EarthBackgroundCore_SubImagecomplete(object sender, EventArgs e)
@@ -132,6 +144,7 @@ namespace EarthBackgroundRevisedWPF
             if (Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath)))
             {
                 raiseDownloadStatusChangedEvent("Download starting", 0);
+                Console.WriteLine("status change - download starting");
                 int imageSize = res * subImageSize;
                 Queue<Bitmap> bitmaps = new Queue<Bitmap>();
                 if (bands > 1)
@@ -206,13 +219,12 @@ namespace EarthBackgroundRevisedWPF
                 }
                 stopwatch.Stop();
                 Console.WriteLine("Full time for download and merge: {0}ms", stopwatch.ElapsedMilliseconds);
-                RaiseUpdateCompleteEvent("Update completed succesfully");
                 return true;
             }
             else
             {
+                Console.WriteLine("No new image");
                 raiseDownloadStatusChangedEvent("No new images avaliable", 100);
-                RaiseUpdateCompleteEvent("No new images avaliable");
                 return false;
             }
         });

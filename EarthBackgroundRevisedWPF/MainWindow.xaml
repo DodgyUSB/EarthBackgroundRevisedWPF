@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EarthBackgroundRevisedWPF"
         mc:Ignorable="d"
-        Title="Earth Background Settigns" Height="150" Width="300" ResizeMode="NoResize" Visibility="Visible" ShowInTaskbar="False">
+        Title="Earth Background Settigns" Height="150" Width="300" ResizeMode="NoResize" Visibility="Hidden" ShowInTaskbar="False">
     <Grid>
         <TextBox x:Name="SavePathInputTextBox" MinWidth="200" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,20,0,0"/>
         <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="220,20,0,0" Click="BrowseBtn_Click"/>
