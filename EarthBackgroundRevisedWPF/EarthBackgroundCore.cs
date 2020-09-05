@@ -28,6 +28,7 @@ namespace EarthBackgroundRevisedWPF
         private static event EventHandler<EventArgs> SubImageComplete;
         public static event EventHandler<UpdateCompleteEventArgs> UpdateComplete;
         private Task updateWaiter;
+        volatile List<int> mergeTimes = new List<int>();
         private Action<object> waitForTask = (object obj) =>
         {
             Task<bool> task = (Task<bool>)obj;
@@ -149,7 +150,7 @@ namespace EarthBackgroundRevisedWPF
                 Queue<Bitmap> bitmaps = new Queue<Bitmap>();
                 if (bands > 1)
                 {
-                    List<Task<Bitmap>> MergeTasks = new List<Task<Bitmap>>();
+                    List<Task<(Bitmap, long)>> MergeTasks = new List<Task<(Bitmap, long)>>();
                     for (int x = 0; x < res; x++)
                     {
                         for (int y = 0; y < res; y++)
@@ -158,7 +159,7 @@ namespace EarthBackgroundRevisedWPF
                             Uri R = buildURL(siteSelection, ImageTime, x, y, res, 2);
                             Uri G = buildURL(siteSelection, ImageTime, x, y, res, 1);
                             Uri B = buildURL(siteSelection, ImageTime, x, y, res, 0);
-                            Task<Bitmap> currentMerge = new Task<Bitmap>(() => DownloadCombinedBandedSubImage(R, G, B));
+                            Task<(Bitmap, long)> currentMerge = new Task<(Bitmap, long)>(() => DownloadCombinedBandedSubImage(R, G, B));
                             MergeTasks.Add(currentMerge);
                             currentMerge.Start();
                         }
@@ -166,11 +167,17 @@ namespace EarthBackgroundRevisedWPF
                     Console.WriteLine("waiting for Merging to complete");
                     Task.WaitAll(MergeTasks.ToArray());
                     Console.WriteLine("Merging Complete");
+                    List<long> mergeTimes = new List<long>();
                     MergeTasks.ForEach(currentTask =>
                     {
-                        bitmaps.Enqueue(currentTask.Result);
+                        mergeTimes.Add(currentTask.Result.Item2);
+                        bitmaps.Enqueue(currentTask.Result.Item1);
                         currentTask.Dispose();
                     });
+                    long averageTime = 0;
+                    mergeTimes.ForEach(currentTime => averageTime += currentTime);
+                    averageTime = averageTime / mergeTimes.Count();
+                    Console.WriteLine("Average merge time: {0}", averageTime);
                     raiseDownloadStatusChangedEvent("Download Complete", 100);
                 }
                 else
@@ -258,42 +265,29 @@ namespace EarthBackgroundRevisedWPF
             }
         }
 
-        private static Func<Bitmap, Bitmap, Bitmap, Bitmap> mergeImages = new Func<Bitmap, Bitmap, Bitmap, Bitmap>((Bitmap R, Bitmap G, Bitmap B) =>
+        private static Func<Bitmap, Bitmap, Bitmap, (Bitmap, long)> mergeImages = new Func<Bitmap, Bitmap, Bitmap, (Bitmap, long)>((Bitmap R, Bitmap G, Bitmap B) =>
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             Bitmap output = new Bitmap(R.Width, R.Height);
-            List<Task<int[,]>> getBrightnessTasks = new List<Task<int[,]>>();
-            //Console.WriteLine("Starting R Brightness task");
-            getBrightnessTasks.Add(new Task<int[,]>(() => getPixelBrightness(R)));
-            //Console.WriteLine("Starting G Brightness task");
-            getBrightnessTasks.Add(new Task<int[,]>(() => getPixelBrightness(G)));
-            //Console.WriteLine("Starting B Brightness task");
-            getBrightnessTasks.Add(new Task<int[,]>(() => getPixelBrightness(B)));
-            foreach(Task<int[,]> task in getBrightnessTasks)
-            {
-                task.Start();
-            }
-            Task.WaitAll(getBrightnessTasks.ToArray());
-            //Console.WriteLine("getBrightness Complete");
-            int[,] RA = getBrightnessTasks[0].Result;
-            int[,] GA = getBrightnessTasks[1].Result;
-            int[,] BA = getBrightnessTasks[2].Result;
             for (int x = 0; x < output.Width; x++)
             {
                 for(int y = 0; y < output.Height; y++)
                 {
-                    output.SetPixel(x, y, Color.FromArgb(RA[x,y],GA[x,y],BA[x,y]));
+                    output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).R, G.GetPixel(x, y).R, B.GetPixel(x, y).R));
                 }
             }
             R.Dispose();
             G.Dispose();
             B.Dispose();
-            return output;
+            stopwatch.Stop();
+            return (output, stopwatch.ElapsedMilliseconds);
         });
 
-        private static Func<Uri,Uri,Uri, Bitmap> DownloadCombinedBandedSubImage = new Func<Uri,Uri,Uri, Bitmap>((Uri R, Uri G, Uri B) =>
+        private static Func<Uri,Uri,Uri, (Bitmap, long)> DownloadCombinedBandedSubImage = new Func<Uri,Uri,Uri, (Bitmap, long)>((Uri R, Uri G, Uri B) =>
         {
             List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>();
-            Bitmap output;
+            (Bitmap, long) output;
             downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(R)));
             downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(G)));
             downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(B)));
@@ -398,7 +392,8 @@ namespace EarthBackgroundRevisedWPF
 
         private static DateTime getNextAvaliableTime(siteOption option, int res)
         {
-            DateTime currentTime = new DateTime(DateTime.UtcNow.Ticks);
+            //DateTime currentTime = new DateTime(DateTime.UtcNow.Ticks);
+            DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
             currentTime.AddMinutes(10);
             switch (option) {
                 case siteOption.Himawari:
