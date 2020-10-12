@@ -78,7 +78,7 @@ namespace EarthBackgroundRevisedWPF
             if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
             {
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
-                updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.rammbSlider);
+                updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.HimawariBanded);
             }
         }
 

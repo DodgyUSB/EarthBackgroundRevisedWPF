@@ -268,19 +268,38 @@ namespace EarthBackgroundRevisedWPF
         private static Func<Bitmap, Bitmap, Bitmap, (Bitmap, long)> mergeImages = new Func<Bitmap, Bitmap, Bitmap, (Bitmap, long)>((Bitmap R, Bitmap G, Bitmap B) =>
         {
             Stopwatch stopwatch = new Stopwatch();
+            //R.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\test 2\\R{0}.png", DateTime.Now.Ticks));
+            //G.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\test 2\\G{0}.png", DateTime.Now.Ticks));
+            //B.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\test 2\\B{0}.png", DateTime.Now.Ticks));
             stopwatch.Start();
             Bitmap output = new Bitmap(R.Width, R.Height);
-            for (int x = 0; x < output.Width; x++)
+            if (R.GetPixel(0, 0).A == 255)
             {
-                for(int y = 0; y < output.Height; y++)
+                for (int x = 0; x < output.Width; x++)
                 {
-                    output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).R, G.GetPixel(x, y).R, B.GetPixel(x, y).R));
+                    for (int y = 0; y < output.Height; y++)
+                    {
+                        //Console.WriteLine("A = {0}", R.GetPixel(x, y).A);
+                        output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).R, G.GetPixel(x, y).G, B.GetPixel(x, y).B));
+                    }
+                }
+            }
+            else
+            {
+                for (int x = 0; x < output.Width; x++)
+                {
+                    for (int y = 0; y < output.Height; y++)
+                    {
+                        //Console.WriteLine("A = {0}", R.GetPixel(x, y).A);
+                        output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).A, G.GetPixel(x, y).A, B.GetPixel(x, y).A));
+                    }
                 }
             }
             R.Dispose();
             G.Dispose();
             B.Dispose();
             stopwatch.Stop();
+            //output.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\test 2\\sub{0}.png", DateTime.Now.Ticks));
             return (output, stopwatch.ElapsedMilliseconds);
         });
 
@@ -293,8 +312,11 @@ namespace EarthBackgroundRevisedWPF
             downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(B)));
             Task.WaitAll(downloadTasks.ToArray());
             Bitmap Rb = new Bitmap(downloadTasks[0].Result);
+            //Rb.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\R{0}.png", DateTime.Now.Ticks));
             Bitmap Gb = new Bitmap(downloadTasks[1].Result);
+            //Rb.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\G{0}.png", DateTime.Now.Ticks));
             Bitmap Bb = new Bitmap(downloadTasks[2].Result);
+            //Rb.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\B{0}.png", DateTime.Now.Ticks));
             output = mergeImages(Rb, Gb, Bb);
             Rb.Dispose();
             Gb.Dispose();
@@ -392,8 +414,8 @@ namespace EarthBackgroundRevisedWPF
 
         private static DateTime getNextAvaliableTime(siteOption option, int res)
         {
-            //DateTime currentTime = new DateTime(DateTime.UtcNow.Ticks);
-            DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
+            DateTime currentTime = new DateTime(DateTime.UtcNow.Ticks);
+            //DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
             currentTime.AddMinutes(10);
             switch (option) {
                 case siteOption.Himawari:
@@ -443,6 +465,7 @@ namespace EarthBackgroundRevisedWPF
             using (WebClient client = new WebClient())
             {
                 int currentImageSize;
+                bool invalid = true;
                 do
                 {
                     currentTime = currentTime.AddMinutes(-10);
@@ -453,14 +476,32 @@ namespace EarthBackgroundRevisedWPF
                         Console.WriteLine("URL: {0}", downloadUrl);
                         currentImageSize = client.DownloadString(downloadUrl).Length;
                         Console.WriteLine("Current image size: {0}", currentImageSize);
+                        if(currentImageSize != nullImageStringLength)
+                        {
+                            downloadUrl = buildURL(option, currentTime, 0, 0, res, 1);
+                            Console.WriteLine("URL: {0}", downloadUrl);
+                            currentImageSize = client.DownloadString(downloadUrl).Length;
+                            Console.WriteLine("Current image size: {0}", currentImageSize);
+                            if(currentImageSize!= nullImageStringLength)
+                            {
+                                downloadUrl = buildURL(option, currentTime, 0, 0, res, 2);
+                                Console.WriteLine("URL: {0}", downloadUrl);
+                                currentImageSize = client.DownloadString(downloadUrl).Length;
+                                Console.WriteLine("Current image size: {0}", currentImageSize);
+                                if(currentImageSize != nullImageStringLength)
+                                {
+                                    invalid = false;
+                                }
+                            }
+                        }
                     }
                     catch
                     {
                         Console.WriteLine("ERROR");
-                        currentImageSize = nullImageStringLength;
+                        //currentImageSize = nullImageStringLength;
                         currentTime = currentTime.AddMinutes(10);
                     }
-                } while (currentImageSize == imageLength);
+                } while (invalid);
             }
             return currentTime;
         }
