@@ -12,7 +12,7 @@ namespace EarthBackgroundRevisedWPF.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.6.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "16.7.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -56,6 +56,64 @@ namespace EarthBackgroundRevisedWPF.Properties {
             }
             set {
                 this["res"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int siteOption {
+            get {
+                return ((int)(this["siteOption"]));
+            }
+            set {
+                this["siteOption"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool autoSetBackground {
+            get {
+                return ((bool)(this["autoSetBackground"]));
+            }
+            set {
+                this["autoSetBackground"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public global::System.DateTime lastImageCaptureTime {
+            get {
+                return ((global::System.DateTime)(this["lastImageCaptureTime"]));
+            }
+            set {
+                this["lastImageCaptureTime"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public global::System.DateTime lastImageDownloadTime {
+            get {
+                return ((global::System.DateTime)(this["lastImageDownloadTime"]));
+            }
+            set {
+                this["lastImageDownloadTime"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string currentImagePath {
+            get {
+                return ((string)(this["currentImagePath"]));
+            }
+            set {
+                this["currentImagePath"] = value;
             }
         }
     }

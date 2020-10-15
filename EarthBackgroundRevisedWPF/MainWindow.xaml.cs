@@ -41,11 +41,17 @@ namespace EarthBackgroundRevisedWPF
         bool startOnBoot;
         int[] resOptions = new int[] { 1, 2, 4, 8, 16 };
         int res;
-        const int timeIntervalMins = 5;
         const string AppKeyName = "EarthBackround";
         public string timerString { get; set; }
         int currentTick = 0;
         int finalTick = 300;
+        public string[] avaliableSites = EarthBackgroundCore.siteOptionNames;
+        private EarthBackgroundCore.siteOption selectedSite;
+        private bool autoSetBackground;
+        private DateTime LastImageCaptureTime;
+        private DateTime LastImageDownloadTime;
+        private string currentImagePath;
+        private bool validExit = false;
 
         public MainWindow()
         {
@@ -59,6 +65,7 @@ namespace EarthBackgroundRevisedWPF
             SavePathInputTextBox.Text = filePath;
             StartOnBootCheckBox.IsChecked = startOnBoot;
             setStartOnBootReg();
+            siteSelectionComboBox.ItemsSource = avaliableSites;
             trayIcon.Visible = true;
             trayIcon.Icon = new Icon(Application.GetContentStream(new Uri("TrayIcon.ico", UriKind.Relative)).Stream);
             trayIcon.Text = "Earth Background settings";
@@ -66,11 +73,34 @@ namespace EarthBackgroundRevisedWPF
             ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Exit", new EventHandler(ExitApplication)), new MenuItem("Manual Update", new EventHandler(manualUpdate)) });
             trayIcon.ContextMenu = trayMenu;
             EarthBackground = new EarthBackgroundCore(res, filePath);
-            timer = new Timer(1000);
+            if (File.Exists(currentImagePath))
+            {
+                setImage(currentImagePath);
+            }
+            else if (File.Exists(EarthBackground.getLatestImagePath()))
+            {
+                setImage(EarthBackground.getLatestImagePath());
+            }
+                timer = new Timer(1000);
             timer.Elapsed += Timer_Elapsed;
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
+        }
+
+        private void setImage(string path)
+        {
+
+            LastImage.BeginInit();
+            LastImage.Source = new BitmapImage(new Uri(path));
+            LastImage.EndInit();
+        }
+
+        private void clearImage()
+        {
+            LastImage.BeginInit();
+            LastImage.ClearValue(System.Windows.Controls.Image.SourceProperty);
+            LastImage.EndInit();
         }
 
         private void Update_Progressed(object sender, EarthBackgroundCore.DownloadStatusChangedEventArgs e)
@@ -109,7 +139,8 @@ namespace EarthBackgroundRevisedWPF
             {
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
-                updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.HimawariBanded);
+                clearImage();
+                updateTask = EarthBackground.update(selectedSite);
             }
         }
 
@@ -122,11 +153,23 @@ namespace EarthBackgroundRevisedWPF
             Console.WriteLine("update complete exit code: {0}", updateTask.Result);
             if (updateTask.Result)
             {
-                Wallpaper.Set(new Uri(EarthBackground.getLatestImagePath()), Wallpaper.Style.Fit);
+                if (autoSetBackground)
+                {
+                    Wallpaper.Set(new Uri(EarthBackground.getLatestImagePath()), Wallpaper.Style.Fit);
+                }
+                LastImageCaptureTime = EarthBackground.latestImageTimeUTC.ToLocalTime();
+                LastImageDownloadTime = updateTime;
+                currentImagePath = EarthBackground.getLatestImagePath();
+                Dispatcher.Invoke(() =>
+                {
+                    setImage(currentImagePath);
+                    ImageTakenTextBlock.Text = LastImageCaptureTime.ToString();
+                    ImageDownloadedTextBlock.Text = LastImageDownloadTime.ToShortTimeString();
+                });
                 Thread.Sleep(2000);
                 Dispatcher.Invoke(() =>
                 {
-                    statusBarStatusTextBlock.Text = string.Format("last updated: {0}:{1}", updateTime.Hour, updateTime.Minute);
+                    statusBarStatusTextBlock.Text = string.Format("last updated: {0}:{1}", addZeros(updateTime.Hour, 2) , addZeros(updateTime.Minute, 2));
                     statusBarUpdateProgressBar.Value = 0;
                 });
             }
@@ -146,8 +189,11 @@ namespace EarthBackgroundRevisedWPF
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            e.Cancel = true;
-            toggleVisibility();
+            if (!validExit)
+            {
+                e.Cancel = true;
+                toggleVisibility();
+            }
         }
 
         private void toggleVisibility()
@@ -171,6 +217,8 @@ namespace EarthBackgroundRevisedWPF
 
         private void ExitApplication(object sender, EventArgs e)
         {
+            validExit = true;
+            saveSettings();
             Application.Current.Shutdown();
         }
 
@@ -198,6 +246,14 @@ namespace EarthBackgroundRevisedWPF
             SavePathInputTextBox.Text = filePath;
             startOnBoot = Properties.Settings.Default.startOnBoot;
             res = Properties.Settings.Default.res;
+            selectedSite = (EarthBackgroundCore.siteOption)Properties.Settings.Default.siteOption;
+            siteSelectionComboBox.SelectedIndex = (int)selectedSite;
+            autoSetBackground = Properties.Settings.Default.autoSetBackground;
+            LastImageCaptureTime = Properties.Settings.Default.lastImageCaptureTime;
+            LastImageDownloadTime = Properties.Settings.Default.lastImageDownloadTime;
+            currentImagePath = Properties.Settings.Default.currentImagePath;
+            ImageTakenTextBlock.Text = LastImageCaptureTime.ToString();
+            ImageDownloadedTextBlock.Text = LastImageDownloadTime.ToShortTimeString();
         }
 
         private void saveSettings()
@@ -205,24 +261,32 @@ namespace EarthBackgroundRevisedWPF
             Properties.Settings.Default.imagePath = filePath;
             Properties.Settings.Default.startOnBoot = startOnBoot;
             Properties.Settings.Default.res = res;
+            Properties.Settings.Default.siteOption = (int)selectedSite;
+            Properties.Settings.Default.autoSetBackground = autoSetBackground;
+            Properties.Settings.Default.lastImageCaptureTime = LastImageCaptureTime;
+            Properties.Settings.Default.lastImageDownloadTime = LastImageDownloadTime;
+            Properties.Settings.Default.currentImagePath = currentImagePath;
             Properties.Settings.Default.Save();
         }
 
         private void ResSelectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             res = resOptions[ResSelectionComboBox.SelectedIndex];
+            saveSettings();
         }
 
         private void StartOnBootCheckBox_Checked(object sender, RoutedEventArgs e)
         {
             startOnBoot = true;
             setStartOnBootReg();
+            saveSettings();
         }
 
         private void StartOnBootCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             startOnBoot = false;
             setStartOnBootReg();
+            saveSettings();
         }
 
         private void BrowseBtn_Click(object sender, RoutedEventArgs e)
@@ -235,6 +299,26 @@ namespace EarthBackgroundRevisedWPF
             EarthBackground = new EarthBackgroundCore(res, filePath);
             saveSettings();
         }
+
+        private void siteSelectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            selectedSite = (EarthBackgroundCore.siteOption)siteSelectionComboBox.SelectedIndex;
+            saveSettings();
+        }
+
+        private static string addZeros(int value, int size)
+        {
+            string val = value.ToString();
+            if (val.Length < size)
+            {
+                for (int x = val.Length; x < size; x++)
+                {
+                    val = "0" + val;
+                }
+            }
+            return val;
+        }
+
 
         public sealed class Wallpaper
         {
@@ -296,6 +380,16 @@ namespace EarthBackgroundRevisedWPF
                     tempPath,
                     SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
             }
+        }
+
+        private void AutoSetBackgroundCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            autoSetBackground = true;
+        }
+
+        private void AutoSetBackgroundCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            autoSetBackground = false;
         }
     }
 }

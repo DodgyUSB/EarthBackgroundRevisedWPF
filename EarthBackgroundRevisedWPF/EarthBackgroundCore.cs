@@ -14,6 +14,7 @@ using System.Threading;
 using System.Diagnostics;
 using Path = System.IO.Path;
 using System.Runtime.CompilerServices;
+using System.Windows.Threading;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -27,8 +28,12 @@ namespace EarthBackgroundRevisedWPF
         public static event EventHandler<DownloadStatusChangedEventArgs> DownloadStatusChanged;
         private static event EventHandler<EventArgs> SubImageComplete;
         public static event EventHandler<UpdateCompleteEventArgs> UpdateComplete;
+        private static event EventHandler<TimeFoundEventArgs> ImageTimeFound;
+        private DateTime lastImageCaptureTimeUTC;
+        private DateTime latestImageCaptureTimeUTC; //this one is for temporary storage so if the download is cut short the new time is not recorded.
         private Task updateWaiter;
         volatile List<int> mergeTimes = new List<int>();
+
         private Action<object> waitForTask = (object obj) =>
         {
             Task<bool> task = (Task<bool>)obj;
@@ -44,6 +49,11 @@ namespace EarthBackgroundRevisedWPF
             }
         };
 
+        public DateTime latestImageTimeUTC
+        {
+            get => lastImageCaptureTimeUTC;
+        }
+
         public string getLatestImagePath()
         {
             return Path.Combine(_FilePath, string.Format("EarthBackground-{0}.png", getLatestStoredCode(_FilePath)));
@@ -55,6 +65,8 @@ namespace EarthBackgroundRevisedWPF
             rammbSlider,
             HimawariBanded
         }
+
+        public static string[] siteOptionNames = { "Himiwari", "rammbSlider", "Himiwari - from bands" };
 
         public EarthBackgroundCore(int res, string filePath)
         {
@@ -85,13 +97,14 @@ namespace EarthBackgroundRevisedWPF
              if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
              {
                 _CompletedSubimages = 0;
-                 activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath));
-                 SubImageComplete += EarthBackgroundCore_SubImagecomplete;
-                 activeUpdate.Start();
-                 UpdateComplete += EarthBackgroundCore_UpdateComplete;
-                 updateWaiter = new Task(waitForTask, activeUpdate);
+                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath));
+                SubImageComplete += EarthBackgroundCore_SubImagecomplete;
+                ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
+                activeUpdate.Start();
+                UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                updateWaiter = new Task(waitForTask, activeUpdate);
                 updateWaiter.Start();
-                 return activeUpdate;
+                return activeUpdate;
              }
              else
              {
@@ -99,10 +112,20 @@ namespace EarthBackgroundRevisedWPF
              }
          }
 
+        private void EarthBackgroundCore_ImageTimeFound(object sender, TimeFoundEventArgs e)
+        {
+            latestImageCaptureTimeUTC = e.TimeImageTaken;
+        }
+
         private void EarthBackgroundCore_UpdateComplete(object sender, UpdateCompleteEventArgs e)
         {
             SubImageComplete -= EarthBackgroundCore_SubImagecomplete;
             UpdateComplete -= EarthBackgroundCore_UpdateComplete;
+            ImageTimeFound -= EarthBackgroundCore_ImageTimeFound;
+            if (activeUpdate.Result)
+            {
+                lastImageCaptureTimeUTC = latestImageCaptureTimeUTC;
+            }
         }
 
         private void EarthBackgroundCore_SubImagecomplete(object sender, EventArgs e)
@@ -138,6 +161,7 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
             Console.WriteLine("Image found at time: {0}", ImageTime);
             raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
             Console.WriteLine("DownloadStatusChangedEvent raised");
@@ -388,6 +412,7 @@ namespace EarthBackgroundRevisedWPF
             }
             return val;
         }
+
         private static string getTimeCode(DateTime currentTime)
         {
             string hour = currentTime.Hour.ToString();
@@ -538,11 +563,21 @@ namespace EarthBackgroundRevisedWPF
         public class UpdateCompleteEventArgs : EventArgs
         {
             public string Message { get; }
+
             public UpdateCompleteEventArgs(string message)
             {
                 Message = message;
             }
         }
 
+        public class TimeFoundEventArgs : EventArgs
+        {
+            public DateTime TimeImageTaken { get; }
+
+            public TimeFoundEventArgs(DateTime timeImageTaken)
+            {
+                TimeImageTaken = timeImageTaken;
+            }
+        }
     }
 }
