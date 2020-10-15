@@ -5,12 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EarthBackgroundRevisedWPF"
         mc:Ignorable="d"
-        Title="Earth Background Settigns" Height="150" Width="300" ResizeMode="NoResize" Visibility="visible" ShowInTaskbar="False">
+        Title="Earth Background Settigns" Height="148.4" Width="384.8" ResizeMode="NoResize" Visibility="visible" ShowInTaskbar="False">
     <Grid>
-        <TextBox x:Name="SavePathInputTextBox" MinWidth="200" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,20,0,0"/>
-        <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="220,20,0,0" Click="BrowseBtn_Click"/>
+        <TextBox x:Name="SavePathInputTextBox" MinWidth="200" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,20,0,0" Width="288"/>
+        <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="308,20,0,0" Click="BrowseBtn_Click"/>
         <Label Margin="15,50,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Content="Resolution"/>
-        <TextBlock Name="test">test</TextBlock>
         <ComboBox x:Name="ResSelectionComboBox" Width="50" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,70,0,0" SelectionChanged="ResSelectionComboBox_SelectionChanged"/>
         <CheckBox x:Name="StartOnBootCheckBox" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,75,10,0" Checked="StartOnBootCheckBox_Checked" Unchecked="StartOnBootCheckBox_Unchecked">Start on Boot</CheckBox>
         <StatusBar HorizontalAlignment="Stretch" Height="20" VerticalAlignment="Bottom" Width="auto">
@@ -18,7 +17,17 @@
                 <TextBlock Text="Next update:" Margin="0,0,0,0"/>
             </StatusBarItem>
             <StatusBarItem>
-                <TextBlock x:Name="StatusBarUpdateTime" Height="18" Width="100"/>
+                <TextBlock x:Name="StatusBarUpdateTime"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock>Status:</TextBlock>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock x:Name="statusBarStatusTextBlock"/>
+            </StatusBarItem>
+            <StatusBarItem VerticalAlignment="Stretch" HorizontalAlignment="Right">
+                <ProgressBar x:Name="statusBarUpdateProgressBar" Value="0" HorizontalAlignment="Right"  Height="12" Width="80"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

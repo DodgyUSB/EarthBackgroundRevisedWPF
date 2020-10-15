@@ -23,7 +23,7 @@ namespace EarthBackgroundRevisedWPF
         private string _FilePath;
         private Task<bool> activeUpdate;
         private const int nullImageStringLength = 2834;
-        private int _CompletedSubimages;
+        private volatile int _CompletedSubimages;
         public static event EventHandler<DownloadStatusChangedEventArgs> DownloadStatusChanged;
         private static event EventHandler<EventArgs> SubImageComplete;
         public static event EventHandler<UpdateCompleteEventArgs> UpdateComplete;
@@ -62,13 +62,10 @@ namespace EarthBackgroundRevisedWPF
             _FilePath = filePath;
         }
 
-        private static void raiseDownloadStatusChangedEvent(string message, int percentage)
+        private static void raiseDownloadStatusChangedEvent(string message, double percentage)
         {
-            EventHandler<DownloadStatusChangedEventArgs> temp = DownloadStatusChanged;
-            if (temp != null)
-            {
-                DownloadStatusChanged(null, new DownloadStatusChangedEventArgs(message, percentage));
-            }
+            Console.WriteLine("Download status change status: {0} percentage: {1}%", message, percentage);
+            DownloadStatusChanged?.Invoke(null, new DownloadStatusChangedEventArgs(message, percentage));
         }
 
         private static void RaiseSubImageCompleteEvent()
@@ -79,6 +76,7 @@ namespace EarthBackgroundRevisedWPF
         private static void RaiseUpdateCompleteEvent(string message)
         {
             Console.WriteLine("raising update complete");
+            raiseDownloadStatusChangedEvent("Complete", 100);
             UpdateComplete?.Invoke(null, new UpdateCompleteEventArgs(message));
         }
 
@@ -86,6 +84,7 @@ namespace EarthBackgroundRevisedWPF
          {
              if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
              {
+                _CompletedSubimages = 0;
                  activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath));
                  SubImageComplete += EarthBackgroundCore_SubImagecomplete;
                  activeUpdate.Start();
@@ -109,8 +108,8 @@ namespace EarthBackgroundRevisedWPF
         private void EarthBackgroundCore_SubImagecomplete(object sender, EventArgs e)
         {
             _CompletedSubimages++;
-            int percentage = (_CompletedSubimages / (_Res * _Res)) * 100;
-            raiseDownloadStatusChangedEvent(string.Format("Downloading", percentage), percentage);
+            double percentage = ((double)_CompletedSubimages / (_Res * _Res)) * 100;
+            raiseDownloadStatusChangedEvent(string.Format("Downloading", _CompletedSubimages), percentage);
         }
 
         private Func<siteOption, int, string, bool> updateFunc = new Func<siteOption, int, string, bool>((siteOption siteSelection, int res, string filePath) =>
@@ -517,9 +516,9 @@ namespace EarthBackgroundRevisedWPF
         public class DownloadStatusChangedEventArgs : EventArgs
         {
             string StatusMessage;
-            int Percentage;
+            double Percentage;
 
-            public DownloadStatusChangedEventArgs(string status, int percentage)
+            public DownloadStatusChangedEventArgs(string status, double percentage)
             {
                 StatusMessage = status;
                 Percentage = percentage;
@@ -530,7 +529,7 @@ namespace EarthBackgroundRevisedWPF
                 get => StatusMessage;
             }
 
-            public int percentageComplete
+            public double percentageComplete
             {
                 get => Percentage;
             }

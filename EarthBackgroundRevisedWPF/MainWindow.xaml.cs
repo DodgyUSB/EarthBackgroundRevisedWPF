@@ -62,7 +62,7 @@ namespace EarthBackgroundRevisedWPF
             trayIcon.Visible = true;
             trayIcon.Icon = new Icon(Application.GetContentStream(new Uri("TrayIcon.ico", UriKind.Relative)).Stream);
             trayIcon.Text = "Earth Background settings";
-            trayIcon.Click += TrayIcon_Click;
+            trayIcon.DoubleClick += TrayIcon_Click;
             ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Exit", new EventHandler(ExitApplication)), new MenuItem("Manual Update", new EventHandler(manualUpdate)) });
             trayIcon.ContextMenu = trayMenu;
             EarthBackground = new EarthBackgroundCore(res, filePath);
@@ -73,34 +73,74 @@ namespace EarthBackgroundRevisedWPF
             timerString = "test";
         }
 
+        private void Update_Progressed(object sender, EarthBackgroundCore.DownloadStatusChangedEventArgs e)
+        {
+            Console.WriteLine("update event recieved message: {0} percentage: {1}%", e.Status, e.percentageComplete);
+            Dispatcher.Invoke(() =>
+            {
+                statusBarStatusTextBlock.Text = e.Status;
+                statusBarUpdateProgressBar.Value = e.percentageComplete;
+            });
+        }
+
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             currentTick++;
+            int remainingTick = finalTick - currentTick;
             int secsLeftInMin = 0;
-            int minsLeft = Math.DivRem(finalTick - currentTick, 60, out secsLeftInMin);
+            int minsLeft = Math.DivRem(remainingTick, 60, out secsLeftInMin);
             Dispatcher.Invoke(() =>
             {
                 StatusBarUpdateTime.Text = string.Format("{0}:{1}", minsLeft, secsLeftInMin);
             });
+
+            if (remainingTick <= 0)
+            {
+                Update();
+            }
         }
 
         private void Update()
         {
+            timer.Stop();
+            currentTick = 0;
             if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
             {
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 updateTask = EarthBackground.update(EarthBackgroundCore.siteOption.HimawariBanded);
             }
         }
 
         private void EarthBackgroundCore_UpdateComplete(object sender, EarthBackgroundCore.UpdateCompleteEventArgs e)
         {
+            timer.Start();
+            DateTime updateTime = DateTime.Now;
             EarthBackgroundCore.UpdateComplete -= EarthBackgroundCore_UpdateComplete;
+            EarthBackgroundCore.DownloadStatusChanged -= Update_Progressed;
             Console.WriteLine("update complete exit code: {0}", updateTask.Result);
             if (updateTask.Result)
             {
                 Wallpaper.Set(new Uri(EarthBackground.getLatestImagePath()), Wallpaper.Style.Fit);
+                Thread.Sleep(2000);
+                Dispatcher.Invoke(() =>
+                {
+                    statusBarStatusTextBlock.Text = string.Format("last updated: {0}:{1}", updateTime.Hour, updateTime.Minute);
+                    statusBarUpdateProgressBar.Value = 0;
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    string temp = statusBarStatusTextBlock.Text;
+                    statusBarStatusTextBlock.Text = "No new Image";
+                    Thread.Sleep(2000);
+
+                    statusBarStatusTextBlock.Text = temp;
+                    statusBarUpdateProgressBar.Value = 0;
+                });
             }
         }
 
@@ -223,6 +263,8 @@ namespace EarthBackgroundRevisedWPF
                 string tempPath = Path.Combine(Path.GetTempPath(), "wallpaper.bmp");
                 img.Save(tempPath, System.Drawing.Imaging.ImageFormat.Bmp);
                 img.Dispose();
+                s.Close();
+                s.Dispose();
 
                 Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true);
                 if (style == Style.Stretched)
