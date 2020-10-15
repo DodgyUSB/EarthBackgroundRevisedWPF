@@ -24,6 +24,7 @@ using System.IO;
 using Path = System.IO.Path;
 using Image = System.Drawing.Image;
 using System.Runtime.InteropServices;
+using Binding = System.Windows.Data.Binding;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -42,6 +43,9 @@ namespace EarthBackgroundRevisedWPF
         int res;
         const int timeIntervalMins = 5;
         const string AppKeyName = "EarthBackround";
+        public string timerString { get; set; }
+        int currentTick = 0;
+        int finalTick = 300;
 
         public MainWindow()
         {
@@ -62,15 +66,23 @@ namespace EarthBackgroundRevisedWPF
             ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Exit", new EventHandler(ExitApplication)), new MenuItem("Manual Update", new EventHandler(manualUpdate)) });
             trayIcon.ContextMenu = trayMenu;
             EarthBackground = new EarthBackgroundCore(res, filePath);
-            timer = new Timer(timeIntervalMins * 60000);
+            timer = new Timer(1000);
             timer.Elapsed += Timer_Elapsed;
+            timer.AutoReset = true;
             timer.Start();
+            timerString = "test";
         }
 
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            Update();
+            currentTick++;
+            int secsLeftInMin = 0;
+            int minsLeft = Math.DivRem(finalTick - currentTick, 60, out secsLeftInMin);
+            Dispatcher.Invoke(() =>
+            {
+                StatusBarUpdateTime.Text = string.Format("{0}:{1}", minsLeft, secsLeftInMin);
+            });
         }
 
         private void Update()
