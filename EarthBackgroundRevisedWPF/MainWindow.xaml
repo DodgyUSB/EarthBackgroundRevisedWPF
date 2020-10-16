@@ -5,13 +5,13 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EarthBackgroundRevisedWPF"
         mc:Ignorable="d"
-        Title="Earth Background Settigns" Height="274.387" Width="464.191" ResizeMode="NoResize" Visibility="visible" ShowInTaskbar="False">
+        Title="Earth Background Settigns" Height="274.387" Width="500.191" ResizeMode="NoResize" Visibility="Hidden" ShowInTaskbar="False">
     <Grid>
-        <TextBox x:Name="SavePathInputTextBox" MinWidth="200" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20,20,0,0" Width="345"/>
-        <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="365,20,0,0" Click="BrowseBtn_Click"/>
+        <TextBox x:Name="SavePathInputTextBox" MinWidth="100" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="20,20,80,0"/>
+        <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="right" VerticalAlignment="Top" Margin="405,20,20,0" Click="BrowseBtn_Click"/>
         <Label Margin="10,0,0,45" HorizontalAlignment="Left" VerticalAlignment="Bottom" Content="Resolution"/>
         <ComboBox x:Name="ResSelectionComboBox" Width="50" Height="20" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,25" SelectionChanged="ResSelectionComboBox_SelectionChanged"/>
-        <CheckBox x:Name="StartOnBootCheckBox" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="246,0,0,25" Checked="StartOnBootCheckBox_Checked" Unchecked="StartOnBootCheckBox_Unchecked">Start on Boot</CheckBox>
+        <CheckBox x:Name="StartOnBootCheckBox" HorizontalAlignment="right" VerticalAlignment="Bottom" Margin="246,0,20,25" Checked="StartOnBootCheckBox_Checked" Unchecked="StartOnBootCheckBox_Unchecked" Width="130">Start on Boot</CheckBox>
         <Label HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="116,0,0,45" RenderTransformOrigin="0.929,0.322">Image Option</Label>
         <ComboBox x:Name="siteSelectionComboBox" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="100" Height="20" Margin="116,0,0,25" SelectionChanged="siteSelectionComboBox_SelectionChanged"/>
         <StatusBar HorizontalAlignment="Stretch" Height="20" VerticalAlignment="Bottom" Width="auto">
@@ -32,8 +32,8 @@
                 <ProgressBar x:Name="statusBarUpdateProgressBar" Value="0" HorizontalAlignment="Right"  Height="12" Width="80"/>
             </StatusBarItem>
         </StatusBar>
-        <CheckBox x:Name="AutoSetBackgroundCheckBox" Content="Auto set background" HorizontalAlignment="Left" Margin="246,0,0,45" VerticalAlignment="Bottom" Checked="AutoSetBackgroundCheckBox_Checked" Unchecked="AutoSetBackgroundCheckBox_Unchecked"/>
-        <Grid x:Name="currentImageGrid" Margin="20,45,33,76">
+        <CheckBox x:Name="AutoSetBackgroundCheckBox" Content="Auto set background" HorizontalAlignment="right" Margin="246,0,20,45" VerticalAlignment="Bottom" Checked="AutoSetBackgroundCheckBox_Checked" Unchecked="AutoSetBackgroundCheckBox_Unchecked" Width="130"/>
+        <Grid x:Name="currentImageGrid" Margin="20,45,19.6,75.8" HorizontalAlignment="Stretch">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1*"/>
@@ -41,11 +41,7 @@
             <Rectangle Stroke="Black" Grid.ColumnSpan="2"/>
             <Grid Grid.Column="0">
                 <TextBlock HorizontalAlignment="Left" Height="16"  TextWrapping="Wrap" Text="Last Image:" VerticalAlignment="Top" Width="62" Margin="5,0,0,0"/>
-                <Image x:Name="LastImage" HorizontalAlignment="Right" Margin="0,0,0,0" Height="124" VerticalAlignment="Top">
-                    <Image.OpacityMask>
-                        <ImageBrush/>
-                    </Image.OpacityMask>
-                </Image>
+                <Image x:Name="LastImage" HorizontalAlignment="left" Margin="75,5,0,5" VerticalAlignment="Stretch"/>
             </Grid>
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
@@ -54,8 +50,8 @@
                     <RowDefinition Height="2*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="1*"/>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="3*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock HorizontalAlignment="Left" TextWrapping="Wrap" Text="Taken: " VerticalAlignment="Top" Grid.Row="0"/>
                 <TextBlock x:Name="ImageTakenTextBlock" HorizontalAlignment="left" Grid.Row="0" Grid.Column="1"/>

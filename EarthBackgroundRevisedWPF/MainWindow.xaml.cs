@@ -91,9 +91,10 @@ namespace EarthBackgroundRevisedWPF
         private void setImage(string path)
         {
 
-            LastImage.BeginInit();
+            //LastImage.BeginInit();
+            //LastImage.Source = new BitmapImage(new Uri(@"C:\Users\650084\Pictures\Patched Earth.png"));
             LastImage.Source = new BitmapImage(new Uri(path));
-            LastImage.EndInit();
+            //LastImage.EndInit();
         }
 
         private void clearImage()
@@ -157,7 +158,9 @@ namespace EarthBackgroundRevisedWPF
                 {
                     Wallpaper.Set(new Uri(EarthBackground.getLatestImagePath()), Wallpaper.Style.Fit);
                 }
+                Console.WriteLine("Latest Image time: {0}", EarthBackground.latestImageTimeUTC.ToString());
                 LastImageCaptureTime = EarthBackground.latestImageTimeUTC.ToLocalTime();
+                Console.WriteLine("Latest Image timer local: {0}", LastImageCaptureTime.ToString());
                 LastImageDownloadTime = updateTime;
                 currentImagePath = EarthBackground.getLatestImagePath();
                 Dispatcher.Invoke(() =>
@@ -249,6 +252,7 @@ namespace EarthBackgroundRevisedWPF
             selectedSite = (EarthBackgroundCore.siteOption)Properties.Settings.Default.siteOption;
             siteSelectionComboBox.SelectedIndex = (int)selectedSite;
             autoSetBackground = Properties.Settings.Default.autoSetBackground;
+            AutoSetBackgroundCheckBox.IsChecked = true;
             LastImageCaptureTime = Properties.Settings.Default.lastImageCaptureTime;
             LastImageDownloadTime = Properties.Settings.Default.lastImageDownloadTime;
             currentImagePath = Properties.Settings.Default.currentImagePath;

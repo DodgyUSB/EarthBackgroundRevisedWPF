@@ -29,6 +29,7 @@ namespace EarthBackgroundRevisedWPF
         private static event EventHandler<EventArgs> SubImageComplete;
         public static event EventHandler<UpdateCompleteEventArgs> UpdateComplete;
         private static event EventHandler<TimeFoundEventArgs> ImageTimeFound;
+        private static event EventHandler<EventArgs> PreUpdateComplete;
         private DateTime lastImageCaptureTimeUTC;
         private DateTime latestImageCaptureTimeUTC; //this one is for temporary storage so if the download is cut short the new time is not recorded.
         private Task updateWaiter;
@@ -38,6 +39,7 @@ namespace EarthBackgroundRevisedWPF
         {
             Task<bool> task = (Task<bool>)obj;
             task.Wait();
+            PreUpdateComplete?.Invoke(null, new EventArgs());
             switch (task.Result)
             {
                 case true:
@@ -102,6 +104,7 @@ namespace EarthBackgroundRevisedWPF
                 ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
                 activeUpdate.Start();
                 UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                PreUpdateComplete += EarthBackgroundCore_PreUpdateComplete;
                 updateWaiter = new Task(waitForTask, activeUpdate);
                 updateWaiter.Start();
                 return activeUpdate;
@@ -114,7 +117,13 @@ namespace EarthBackgroundRevisedWPF
 
         private void EarthBackgroundCore_ImageTimeFound(object sender, TimeFoundEventArgs e)
         {
-            latestImageCaptureTimeUTC = e.TimeImageTaken;
+            DateTime now = DateTime.UtcNow;
+            Console.WriteLine("now: {0}", now.ToString());
+            DateTime capture = e.TimeImageTaken;
+            Console.WriteLine("Capture: {0}", capture.ToString());
+            DateTime captureDateTime = new DateTime(now.Year, now.Month, now.Day, capture.Hour, capture.Minute, capture.Second);
+            Console.WriteLine("Combined: {0}", captureDateTime.ToString());
+            latestImageCaptureTimeUTC = captureDateTime;
         }
 
         private void EarthBackgroundCore_UpdateComplete(object sender, UpdateCompleteEventArgs e)
@@ -122,13 +131,18 @@ namespace EarthBackgroundRevisedWPF
             SubImageComplete -= EarthBackgroundCore_SubImagecomplete;
             UpdateComplete -= EarthBackgroundCore_UpdateComplete;
             ImageTimeFound -= EarthBackgroundCore_ImageTimeFound;
+        }
+
+        private void EarthBackgroundCore_PreUpdateComplete(object sender, EventArgs e)
+        {
             if (activeUpdate.Result)
             {
+                Console.WriteLine("setting update time");
                 lastImageCaptureTimeUTC = latestImageCaptureTimeUTC;
             }
         }
 
-        private void EarthBackgroundCore_SubImagecomplete(object sender, EventArgs e)
+            private void EarthBackgroundCore_SubImagecomplete(object sender, EventArgs e)
         {
             _CompletedSubimages++;
             double percentage = ((double)_CompletedSubimages / (_Res * _Res)) * 100;
