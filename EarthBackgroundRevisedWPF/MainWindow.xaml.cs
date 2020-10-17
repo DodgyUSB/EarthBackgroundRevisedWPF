@@ -24,7 +24,6 @@ using System.IO;
 using Path = System.IO.Path;
 using Image = System.Drawing.Image;
 using System.Runtime.InteropServices;
-using Binding = System.Windows.Data.Binding;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -47,6 +46,7 @@ namespace EarthBackgroundRevisedWPF
         int finalTick = 300;
         public string[] avaliableSites = EarthBackgroundCore.siteOptionNames;
         private EarthBackgroundCore.siteOption selectedSite;
+        private static event EventHandler<Microsoft.Win32.PowerModeChangedEventArgs> powerChanged;
         private bool autoSetBackground;
         private DateTime LastImageCaptureTime;
         private DateTime LastImageDownloadTime;
@@ -57,6 +57,7 @@ namespace EarthBackgroundRevisedWPF
         {
             if (System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1) System.Diagnostics.Process.GetCurrentProcess().Kill();
             InitializeComponent();
+            powerChanged += MainWindow_powerChanged;
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             this.Closing += MainWindow_Closing;
             setParameters();
@@ -86,6 +87,14 @@ namespace EarthBackgroundRevisedWPF
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
+        }
+
+        private void MainWindow_powerChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+        {
+            if(e.Mode == Microsoft.Win32.PowerModes.Resume)
+            {
+                EarthBackground = new EarthBackgroundCore(res, filePath);
+            }
         }
 
         private void setImage(string path)
@@ -182,6 +191,7 @@ namespace EarthBackgroundRevisedWPF
                 {
                     string temp = statusBarStatusTextBlock.Text;
                     statusBarStatusTextBlock.Text = "No new Image";
+                    setImage(EarthBackground.getLatestImagePath());
                     Thread.Sleep(2000);
 
                     statusBarStatusTextBlock.Text = temp;
