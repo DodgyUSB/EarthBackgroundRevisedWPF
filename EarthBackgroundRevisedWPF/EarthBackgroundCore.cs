@@ -131,6 +131,7 @@ namespace EarthBackgroundRevisedWPF
             SubImageComplete -= EarthBackgroundCore_SubImagecomplete;
             UpdateComplete -= EarthBackgroundCore_UpdateComplete;
             ImageTimeFound -= EarthBackgroundCore_ImageTimeFound;
+            PreUpdateComplete -= EarthBackgroundCore_PreUpdateComplete;
         }
 
         private void EarthBackgroundCore_PreUpdateComplete(object sender, EventArgs e)

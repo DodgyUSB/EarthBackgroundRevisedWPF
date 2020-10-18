@@ -46,7 +46,8 @@ namespace EarthBackgroundRevisedWPF
         int finalTick = 300;
         public string[] avaliableSites = EarthBackgroundCore.siteOptionNames;
         private EarthBackgroundCore.siteOption selectedSite;
-        private static event EventHandler<Microsoft.Win32.PowerModeChangedEventArgs> powerChanged;
+        private static event Microsoft.Win32.PowerModeChangedEventHandler powerChanged;
+        private static event Microsoft.Win32.SessionEndedEventHandler sessionEnded;
         private bool autoSetBackground;
         private DateTime LastImageCaptureTime;
         private DateTime LastImageDownloadTime;
@@ -58,6 +59,7 @@ namespace EarthBackgroundRevisedWPF
             if (System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1) System.Diagnostics.Process.GetCurrentProcess().Kill();
             InitializeComponent();
             powerChanged += MainWindow_powerChanged;
+            sessionEnded += MainWindow_sessionEnded;
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             this.Closing += MainWindow_Closing;
             setParameters();
@@ -87,6 +89,11 @@ namespace EarthBackgroundRevisedWPF
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
+        }
+
+        private void MainWindow_sessionEnded(object sender, Microsoft.Win32.SessionEndedEventArgs e)
+        {
+            ApplicationClose();
         }
 
         private void MainWindow_powerChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
@@ -230,8 +237,15 @@ namespace EarthBackgroundRevisedWPF
 
         private void ExitApplication(object sender, EventArgs e)
         {
+            ApplicationClose();
+        }
+
+        private void ApplicationClose()
+        {
             validExit = true;
             saveSettings();
+            powerChanged -= MainWindow_powerChanged;
+            sessionEnded -= MainWindow_sessionEnded;
             Application.Current.Shutdown();
         }
 
