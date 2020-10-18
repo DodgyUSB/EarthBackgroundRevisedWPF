@@ -10,10 +10,44 @@
         <TextBox x:Name="SavePathInputTextBox" MinWidth="100" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="20,20,80,0"/>
         <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="right" VerticalAlignment="Top" Margin="405,20,20,0" Click="BrowseBtn_Click"/>
         <Label Margin="10,0,0,45" HorizontalAlignment="Left" VerticalAlignment="Bottom" Content="Resolution"/>
-        <ComboBox x:Name="ResSelectionComboBox" Width="50" Height="20" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,25" SelectionChanged="ResSelectionComboBox_SelectionChanged"/>
-        <CheckBox x:Name="StartOnBootCheckBox" HorizontalAlignment="right" VerticalAlignment="Bottom" Margin="246,0,20,25" Checked="StartOnBootCheckBox_Checked" Unchecked="StartOnBootCheckBox_Unchecked" Width="130">Start on Boot</CheckBox>
+        <ComboBox x:Name="ResSelectionComboBox" Width="50" Height="20" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="20,0,0,25" SelectionChanged="ResSelectionComboBox_SelectionChanged">
+            <ComboBox.ToolTip>
+                <ToolTip>
+                    <TextBlock>
+                        Sets the "resolution" of the downloaded image.
+                        <LineBreak/>
+                        The image is downloaded as smaller images which are then put together.
+                        <LineBreak/>
+                        The number here is the number of sub images across and down.
+                        <LineBreak/>
+                        So 4 will give an image made of 16 subimages as it is a 4x4 image.
+                        <LineBreak/>
+                        Himawari sites have a sub image resolution of 550.
+                        <LineBreak/>
+                        RammbSlider has a sub image resolution of 688.
+                    </TextBlock>
+                </ToolTip>
+            </ComboBox.ToolTip>
+        </ComboBox>
+        <CheckBox x:Name="StartOnBootCheckBox" HorizontalAlignment="right" VerticalAlignment="Bottom" Margin="246,0,20,25" Checked="StartOnBootCheckBox_Checked" Unchecked="StartOnBootCheckBox_Unchecked" Width="130" ToolTip="Pretty self explanitory">Start on Boot</CheckBox>
         <Label HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="116,0,0,45" RenderTransformOrigin="0.929,0.322">Image Option</Label>
-        <ComboBox x:Name="siteSelectionComboBox" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="100" Height="20" Margin="116,0,0,25" SelectionChanged="siteSelectionComboBox_SelectionChanged"/>
+        <ComboBox x:Name="siteSelectionComboBox" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="100" Height="20" Margin="116,0,0,25" SelectionChanged="siteSelectionComboBox_SelectionChanged">
+            <ComboBox.ToolTip>
+                <ToolTip>
+                    <TextBlock>
+                        Select the image source
+                        <LineBreak/>
+                        Himawari - Basic pre processed image. A little over saturated but quicker download and little processing
+                        <LineBreak/>
+                        RammbSlider - From a differnt website. sepperate RGB bands are downloaded and combined - looks best but simetimes not up to date
+                        <LineBreak/>
+                        HimawariBanded - Same site as Himawari but made from combining RGB bands. looks really dark though
+                    </TextBlock>
+                </ToolTip>
+            </ComboBox.ToolTip>
+        </ComboBox>
+        <Button x:Name="ManualUpdateBtn" Content="Manual Update" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="236,0,0,48" Width="90" Click="ManualUpdateBtn_Click" ToolTip="Runs normal update without waiting for timer"/>
+        <Button x:Name="ForceUpdateBtn" Content="Force Update" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="236,0,0,25" Width="90" Click="ForceUpdateBtn_Click" ToolTip="Forces update by ignoring weather the latest avaliable image is new than the current image"/>
         <StatusBar HorizontalAlignment="Stretch" Height="20" VerticalAlignment="Bottom" Width="auto">
             <StatusBarItem Margin="0,0,0,0">
                 <TextBlock Text="Next update:" Margin="0,0,0,0"/>
@@ -29,11 +63,11 @@
                 <TextBlock x:Name="statusBarStatusTextBlock"/>
             </StatusBarItem>
             <StatusBarItem VerticalAlignment="Stretch" HorizontalAlignment="Right">
-                <ProgressBar x:Name="statusBarUpdateProgressBar" Value="0" HorizontalAlignment="Right"  Height="12" Width="80"/>
+                <ProgressBar x:Name="statusBarUpdateProgressBar" Value="0" HorizontalAlignment="Right"  Height="12" Width="80" ToolTip="Oooh. A progress bar. How fancy!"/>
             </StatusBarItem>
         </StatusBar>
-        <CheckBox x:Name="AutoSetBackgroundCheckBox" Content="Auto set background" HorizontalAlignment="right" Margin="246,0,20,45" VerticalAlignment="Bottom" Checked="AutoSetBackgroundCheckBox_Checked" Unchecked="AutoSetBackgroundCheckBox_Unchecked" Width="130"/>
-        <Grid x:Name="currentImageGrid" Margin="20,45,19.6,75.8" HorizontalAlignment="Stretch">
+        <CheckBox x:Name="AutoSetBackgroundCheckBox" Content="Auto set background" HorizontalAlignment="right" Margin="246,0,20,45" VerticalAlignment="Bottom" Checked="AutoSetBackgroundCheckBox_Checked" Unchecked="AutoSetBackgroundCheckBox_Unchecked" Width="130" ToolTip="When checked the application will set your desktop background to the downloaded image when complete"/>
+        <Grid x:Name="currentImageGrid" Margin="20,45,19.6,75.8" HorizontalAlignment="Stretch" ToolTip="Information about the currently downloaded image">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1*"/>

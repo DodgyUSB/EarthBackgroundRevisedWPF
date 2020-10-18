@@ -99,7 +99,7 @@ namespace EarthBackgroundRevisedWPF
              if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
              {
                 _CompletedSubimages = 0;
-                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath));
+                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath, false));
                 SubImageComplete += EarthBackgroundCore_SubImagecomplete;
                 ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
                 activeUpdate.Start();
@@ -115,13 +115,34 @@ namespace EarthBackgroundRevisedWPF
              }
          }
 
+        public Task<bool> update(siteOption option, bool forceUpdate)
+        {
+            if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
+            {
+                _CompletedSubimages = 0;
+                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath, forceUpdate));
+                SubImageComplete += EarthBackgroundCore_SubImagecomplete;
+                ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
+                activeUpdate.Start();
+                UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                PreUpdateComplete += EarthBackgroundCore_PreUpdateComplete;
+                updateWaiter = new Task(waitForTask, activeUpdate);
+                updateWaiter.Start();
+                return activeUpdate;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         private void EarthBackgroundCore_ImageTimeFound(object sender, TimeFoundEventArgs e)
         {
             DateTime now = DateTime.UtcNow;
             Console.WriteLine("now: {0}", now.ToString());
             DateTime capture = e.TimeImageTaken;
             Console.WriteLine("Capture: {0}", capture.ToString());
-            DateTime captureDateTime = new DateTime(now.Year, now.Month, now.Day, capture.Hour, capture.Minute, capture.Second);
+            DateTime captureDateTime = new DateTime(now.Year, now.Month, now.Day, capture.Hour, capture.Minute, 0);
             Console.WriteLine("Combined: {0}", captureDateTime.ToString());
             latestImageCaptureTimeUTC = captureDateTime;
         }
@@ -150,7 +171,7 @@ namespace EarthBackgroundRevisedWPF
             raiseDownloadStatusChangedEvent(string.Format("Downloading", _CompletedSubimages), percentage);
         }
 
-        private Func<siteOption, int, string, bool> updateFunc = new Func<siteOption, int, string, bool>((siteOption siteSelection, int res, string filePath) =>
+        private Func<siteOption, int, string, bool, bool> updateFunc = new Func<siteOption, int, string, bool, bool>((siteOption siteSelection, int res, string filePath, bool force) =>
         {
             raiseDownloadStatusChangedEvent("Update Starting", 0);
             Stopwatch stopwatch = new Stopwatch();
@@ -180,7 +201,7 @@ namespace EarthBackgroundRevisedWPF
             Console.WriteLine("Image found at time: {0}", ImageTime);
             raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
             Console.WriteLine("DownloadStatusChangedEvent raised");
-            if (Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath)))
+            if ((Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath))) || force)
             {
                 raiseDownloadStatusChangedEvent("Download starting", 0);
                 Console.WriteLine("status change - download starting");

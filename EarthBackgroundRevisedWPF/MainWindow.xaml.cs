@@ -73,7 +73,7 @@ namespace EarthBackgroundRevisedWPF
             trayIcon.Icon = new Icon(Application.GetContentStream(new Uri("TrayIcon.ico", UriKind.Relative)).Stream);
             trayIcon.Text = "Earth Background settings";
             trayIcon.DoubleClick += TrayIcon_Click;
-            ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Exit", new EventHandler(ExitApplication)), new MenuItem("Manual Update", new EventHandler(manualUpdate)) });
+            ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Manual Update", new EventHandler(manualUpdate)), new MenuItem("Force Update", new EventHandler(forceUpdate)), new MenuItem("Exit", new EventHandler(ExitApplication)) });
             trayIcon.ContextMenu = trayMenu;
             EarthBackground = new EarthBackgroundCore(res, filePath);
             if (File.Exists(currentImagePath))
@@ -139,7 +139,7 @@ namespace EarthBackgroundRevisedWPF
             int minsLeft = Math.DivRem(remainingTick, 60, out secsLeftInMin);
             Dispatcher.Invoke(() =>
             {
-                StatusBarUpdateTime.Text = string.Format("{0}:{1}", minsLeft, secsLeftInMin);
+                StatusBarUpdateTime.Text = string.Format("{0}:{1}", addZeros(minsLeft, 2), addZeros(secsLeftInMin, 2));
             });
 
             if (remainingTick <= 0)
@@ -158,6 +158,19 @@ namespace EarthBackgroundRevisedWPF
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
                 updateTask = EarthBackground.update(selectedSite);
+            }
+        }
+
+        private void Update(bool forceUpdate)
+        {
+            timer.Stop();
+            currentTick = 0;
+            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
+            {
+                EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
+                clearImage();
+                updateTask = EarthBackground.update(selectedSite, forceUpdate);
             }
         }
 
@@ -254,6 +267,11 @@ namespace EarthBackgroundRevisedWPF
             Update();
         }
 
+        private void forceUpdate(object sender, EventArgs e)
+        {
+            Update(true);
+        }
+
         private void setStartOnBootReg()
         {
             Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
@@ -276,7 +294,7 @@ namespace EarthBackgroundRevisedWPF
             selectedSite = (EarthBackgroundCore.siteOption)Properties.Settings.Default.siteOption;
             siteSelectionComboBox.SelectedIndex = (int)selectedSite;
             autoSetBackground = Properties.Settings.Default.autoSetBackground;
-            AutoSetBackgroundCheckBox.IsChecked = true;
+            AutoSetBackgroundCheckBox.IsChecked = autoSetBackground;
             LastImageCaptureTime = Properties.Settings.Default.lastImageCaptureTime;
             LastImageDownloadTime = Properties.Settings.Default.lastImageDownloadTime;
             currentImagePath = Properties.Settings.Default.currentImagePath;
@@ -418,6 +436,16 @@ namespace EarthBackgroundRevisedWPF
         private void AutoSetBackgroundCheckBox_Unchecked(object sender, RoutedEventArgs e)
         {
             autoSetBackground = false;
+        }
+
+        private void ManualUpdateBtn_Click(object sender, RoutedEventArgs e)
+        {
+            Update();
+        }
+
+        private void ForceUpdateBtn_Click(object sender, RoutedEventArgs e)
+        {
+            Update(true);
         }
     }
 }
