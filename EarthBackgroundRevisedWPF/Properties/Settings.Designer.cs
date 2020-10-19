@@ -116,5 +116,16 @@ namespace EarthBackgroundRevisedWPF.Properties {
                 this["currentImagePath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public int[] timerTickOptions {
+            get {
+                return ((int[])(this["timerTickOptions"]));
+            }
+            set {
+                this["timerTickOptions"] = value;
+            }
+        }
     }
 }

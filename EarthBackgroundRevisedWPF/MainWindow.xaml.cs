@@ -62,7 +62,6 @@ namespace EarthBackgroundRevisedWPF
             InitializeComponent();
             powerChanged += MainWindow_powerChanged;
             sessionEnded += MainWindow_sessionEnded;
-            changeTimerOptions();
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             this.Closing += MainWindow_Closing;
             setParameters();
@@ -78,6 +77,7 @@ namespace EarthBackgroundRevisedWPF
             trayIcon.DoubleClick += TrayIcon_Click;
             ContextMenu trayMenu = new ContextMenu(new MenuItem[] { new MenuItem("Manual Update", new EventHandler(manualUpdate)), new MenuItem("Force Update", new EventHandler(forceUpdate)), new MenuItem("Exit", new EventHandler(ExitApplication)) });
             trayIcon.ContextMenu = trayMenu;
+            changeTimerOptions(timerOptions);
             EarthBackground = new EarthBackgroundCore(res, filePath);
             if (File.Exists(currentImagePath))
             {
@@ -113,27 +113,34 @@ namespace EarthBackgroundRevisedWPF
             {
                 StatusBarUpdateTime.ClearValue(TextBlock.ContextMenuProperty);
             }
+            StatusBarUpdateTime.ContextMenu = new System.Windows.Controls.ContextMenu();
             System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
             item.Header = "Custom Time";
             item.Click += CustomTime_Clicked;
             StatusBarUpdateTime.ContextMenu.Items.Add(item);
         }
 
-        private void changeTimerOptions(int[] timerTickOptions)
+        private void changeTimerOptions(List<int> timerTickOptions)
         {
-            if (StatusBarUpdateTime.ContextMenu != null)
+            Dispatcher.Invoke(() =>
             {
-                StatusBarUpdateTime.ClearValue(TextBlock.ContextMenuProperty);
-            }
-            StatusBarUpdateTime.ContextMenu = new System.Windows.Controls.ContextMenu();
-            foreach (int tick in timerTickOptions)
-            {
-                StatusBarUpdateTime.ContextMenu.Items.Add(menuItemBuilder(buildTimerString(tick), tick));
-            }
-            System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
-            item.Header = "Custom Time";
-            item.Click += CustomTime_Clicked;
-            StatusBarUpdateTime.ContextMenu.Items.Add(item);
+                if (StatusBarUpdateTime.ContextMenu != null)
+                {
+                    StatusBarUpdateTime.ClearValue(TextBlock.ContextMenuProperty);
+                }
+                StatusBarUpdateTime.ContextMenu = new System.Windows.Controls.ContextMenu();
+                if (timerTickOptions.Count() > 0)
+                {
+                    foreach (int tick in timerTickOptions)
+                    {
+                        StatusBarUpdateTime.ContextMenu.Items.Add(menuItemBuilder(buildTimerString(tick), tick));
+                    }
+                }
+                System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
+                item.Header = "Custom Time";
+                item.Click += CustomTime_Clicked;
+                StatusBarUpdateTime.ContextMenu.Items.Add(item);
+            });
         }
 
         private void CustomTime_Clicked(object sender, RoutedEventArgs e)
@@ -142,6 +149,8 @@ namespace EarthBackgroundRevisedWPF
             if (customTimeWindow.ShowDialog() == true)
             {
                 timerOptions.Add(customTimeWindow.Ticks);
+                changeTimerOptions(timerOptions);
+                setTimerLength(customTimeWindow.Ticks);
             }
         }
 
@@ -151,7 +160,34 @@ namespace EarthBackgroundRevisedWPF
             item.Header = header;
             item.Tag = tag;
             item.Click += Item_Click;
+            item.PreviewMouseRightButtonDown += Item_PreviewMouseRightButtonDown;
+
+            //define the context menu and menu item for deleting the time from the list cos why not
+            item.ContextMenu = new System.Windows.Controls.ContextMenu();
+            System.Windows.Controls.MenuItem itemItem = new System.Windows.Controls.MenuItem();
+            itemItem.Header = "Delete";
+            itemItem.Click += ItemDelete_Click;
+            itemItem.Tag = tag;
+            item.ContextMenu.Items.Add(itemItem);
+
             return item;
+        }
+
+        private void Item_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            ((System.Windows.Controls.MenuItem)e.Source).ContextMenu.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private void ItemDelete_Click(object sender, RoutedEventArgs e)
+        {
+            int tickValue = (int)((System.Windows.Controls.MenuItem)e.Source).Tag;
+            timerOptions.Remove(tickValue);
+            changeTimerOptions(timerOptions);
+            if(tickValue == finalTick)
+            {
+                setTimerLength(300);
+            }
         }
 
         private void Item_Click(object sender, RoutedEventArgs e)
@@ -177,6 +213,7 @@ namespace EarthBackgroundRevisedWPF
         private void setTimerLength(int tick)
         {
             finalTick = tick;
+            currentTick = 0;
         }
 
         private void clearImage()
@@ -224,13 +261,13 @@ namespace EarthBackgroundRevisedWPF
             int secs = 0;
             int mins = Math.DivRem(SecondsTick, 60, out secs);
             int hours = Math.DivRem(mins, 60, out mins);
-            if (SecondsTick >= 1200) 
+            if (finalTick >= 1200) 
             {
-                return string.Format("{0}:{1}:{2}", hours, mins, secs);
+                return string.Format("{0}:{1}:{2}", addZeros(hours, 2), addZeros(mins, 2), addZeros(secs, 2));
             }
             else
             {
-                return string.Format("{0}:{1}", mins, secs);
+                return string.Format("{0}:{1}", addZeros(mins, 2), addZeros(secs, 2));
             }
         }
 
@@ -390,6 +427,10 @@ namespace EarthBackgroundRevisedWPF
             currentImagePath = Properties.Settings.Default.currentImagePath;
             ImageTakenTextBlock.Text = LastImageCaptureTime.ToString();
             ImageDownloadedTextBlock.Text = LastImageDownloadTime.ToShortTimeString();
+            if (Properties.Settings.Default.timerTickOptions != null)
+            {
+                timerOptions = new List<int>(Properties.Settings.Default.timerTickOptions);
+            }
         }
 
         private void saveSettings()
@@ -402,6 +443,7 @@ namespace EarthBackgroundRevisedWPF
             Properties.Settings.Default.lastImageCaptureTime = LastImageCaptureTime;
             Properties.Settings.Default.lastImageDownloadTime = LastImageDownloadTime;
             Properties.Settings.Default.currentImagePath = currentImagePath;
+            Properties.Settings.Default.timerTickOptions = timerOptions.ToArray();
             Properties.Settings.Default.Save();
         }
 

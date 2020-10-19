@@ -20,6 +20,8 @@ namespace EarthBackgroundRevisedWPF
     public partial class CustomTimeWindow : Window
     {
         public int Ticks = 0;
+        private Key[] validTextBoxControlKeys = new Key[] { Key.Back, Key.Delete, Key.Tab, Key.Left, Key.Right };
+
         public CustomTimeWindow()
         {
             InitializeComponent();
@@ -27,18 +29,43 @@ namespace EarthBackgroundRevisedWPF
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-
+            int hours = 0;
+            if(HoursTextBox.Text.Length > 0)
+            {
+                hours = Convert.ToInt32(HoursTextBox.Text);
+            }
+            int mins = 0;
+            if(MinsTextBox.Text.Length > 0)
+            {
+                mins = Convert.ToInt32(MinsTextBox.Text);
+            }
+            int secs = 0;
+            if(SecsTextBox.Text.Length > 0)
+            {
+                secs = Convert.ToInt32(SecsTextBox.Text);
+            }
+            Ticks = (hours * 1200) + (mins * 60) + secs;
+            if (Ticks > 0)
+            {
+                DialogResult = true;
+            }
+            else
+            {
+                DialogResult = false;
+            }
+            this.Hide();
         }
 
         private void HoursTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            Console.WriteLine(e.Key);
             int currentVal = 0;
             if(HoursTextBox.Text.Length > 0)
             {
                 currentVal = Convert.ToInt32(HoursTextBox.Text);
             }
-
-            if (!(KeyIsNumeric(e.Key) || e.Key == Key.Tab) || !(currentVal <= 2 && keyIsBetween(e.Key,0,4)))
+            //Console.WriteLine(validTextBoxControlKeys.Contains(e.Key));
+            if (!((KeyIsNumeric(e.Key) && ((currentVal == 2 && keyIsBetween(e.Key,0,4)) || currentVal < 2)) || validTextBoxControlKeys.Contains(e.Key)))
             {
                 e.Handled = true;
             }
@@ -60,6 +87,35 @@ namespace EarthBackgroundRevisedWPF
             else
             {
                 return false;
+            }
+        }
+
+        private void MinsTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            Console.WriteLine(e.Key);
+            int currentVal = 0;
+            if (MinsTextBox.Text.Length > 0)
+            {
+                currentVal = Convert.ToInt32(MinsTextBox.Text);
+            }
+            //Console.WriteLine(validTextBoxControlKeys.Contains(e.Key));
+            if (!((KeyIsNumeric(e.Key) && currentVal < 6) || validTextBoxControlKeys.Contains(e.Key)))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private void SecsTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            Console.WriteLine(e.Key);
+            int currentVal = 0;
+            if (SecsTextBox.Text.Length > 0)
+            {
+                currentVal = Convert.ToInt32(SecsTextBox.Text);
+            }
+            if (!((KeyIsNumeric(e.Key) && currentVal < 6) || validTextBoxControlKeys.Contains(e.Key)))
+            {
+                e.Handled = true;
             }
         }
     }
