@@ -24,6 +24,7 @@ using System.IO;
 using Path = System.IO.Path;
 using Image = System.Drawing.Image;
 using System.Runtime.InteropServices;
+//using CContextMenu = System.Windows.Controls.ContextMenu;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -53,6 +54,7 @@ namespace EarthBackgroundRevisedWPF
         private DateTime LastImageDownloadTime;
         private string currentImagePath;
         private bool validExit = false;
+        List<int> timerOptions = new List<int>(new int[] { 300 });
 
         public MainWindow()
         {
@@ -60,6 +62,7 @@ namespace EarthBackgroundRevisedWPF
             InitializeComponent();
             powerChanged += MainWindow_powerChanged;
             sessionEnded += MainWindow_sessionEnded;
+            changeTimerOptions();
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             this.Closing += MainWindow_Closing;
             setParameters();
@@ -104,6 +107,59 @@ namespace EarthBackgroundRevisedWPF
             }
         }
 
+        private void changeTimerOptions()
+        {
+            if (StatusBarUpdateTime.ContextMenu != null)
+            {
+                StatusBarUpdateTime.ClearValue(TextBlock.ContextMenuProperty);
+            }
+            System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
+            item.Header = "Custom Time";
+            item.Click += CustomTime_Clicked;
+            StatusBarUpdateTime.ContextMenu.Items.Add(item);
+        }
+
+        private void changeTimerOptions(int[] timerTickOptions)
+        {
+            if (StatusBarUpdateTime.ContextMenu != null)
+            {
+                StatusBarUpdateTime.ClearValue(TextBlock.ContextMenuProperty);
+            }
+            StatusBarUpdateTime.ContextMenu = new System.Windows.Controls.ContextMenu();
+            foreach (int tick in timerTickOptions)
+            {
+                StatusBarUpdateTime.ContextMenu.Items.Add(menuItemBuilder(buildTimerString(tick), tick));
+            }
+            System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
+            item.Header = "Custom Time";
+            item.Click += CustomTime_Clicked;
+            StatusBarUpdateTime.ContextMenu.Items.Add(item);
+        }
+
+        private void CustomTime_Clicked(object sender, RoutedEventArgs e)
+        {
+            CustomTimeWindow customTimeWindow = new CustomTimeWindow();
+            if (customTimeWindow.ShowDialog() == true)
+            {
+                timerOptions.Add(customTimeWindow.Ticks);
+            }
+        }
+
+        private System.Windows.Controls.MenuItem menuItemBuilder(string header, int tag)
+        {
+            System.Windows.Controls.MenuItem item = new System.Windows.Controls.MenuItem();
+            item.Header = header;
+            item.Tag = tag;
+            item.Click += Item_Click;
+            return item;
+        }
+
+        private void Item_Click(object sender, RoutedEventArgs e)
+        {
+            int tick = (int)((System.Windows.Controls.MenuItem)(e.Source)).Tag;
+            setTimerLength(tick);
+        }
+
         private void setImage(string path)
         {
 
@@ -113,11 +169,24 @@ namespace EarthBackgroundRevisedWPF
             //LastImage.EndInit();
         }
 
+        private void setTimerLength(int hours, int mins, int secs)
+        {
+            finalTick = (hours * 1200) + (mins * 60) + secs;
+        }
+
+        private void setTimerLength(int tick)
+        {
+            finalTick = tick;
+        }
+
         private void clearImage()
         {
-            LastImage.BeginInit();
-            LastImage.ClearValue(System.Windows.Controls.Image.SourceProperty);
-            LastImage.EndInit();
+            Dispatcher.Invoke(() =>
+            {
+                LastImage.BeginInit();
+                LastImage.ClearValue(System.Windows.Controls.Image.SourceProperty);
+                LastImage.EndInit();
+            });
         }
 
         private void Update_Progressed(object sender, EarthBackgroundCore.DownloadStatusChangedEventArgs e)
@@ -135,16 +204,33 @@ namespace EarthBackgroundRevisedWPF
         {
             currentTick++;
             int remainingTick = finalTick - currentTick;
-            int secsLeftInMin = 0;
-            int minsLeft = Math.DivRem(remainingTick, 60, out secsLeftInMin);
-            Dispatcher.Invoke(() =>
-            {
-                StatusBarUpdateTime.Text = string.Format("{0}:{1}", addZeros(minsLeft, 2), addZeros(secsLeftInMin, 2));
-            });
-
+            setTimerText(remainingTick);
             if (remainingTick <= 0)
             {
                 Update();
+            }
+        }
+
+        private void setTimerText(int SecondTicks)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                StatusBarUpdateTime.Text = buildTimerString(SecondTicks);
+            });
+        }
+
+        private string buildTimerString(int SecondsTick)
+        {
+            int secs = 0;
+            int mins = Math.DivRem(SecondsTick, 60, out secs);
+            int hours = Math.DivRem(mins, 60, out mins);
+            if (SecondsTick >= 1200) 
+            {
+                return string.Format("{0}:{1}:{2}", hours, mins, secs);
+            }
+            else
+            {
+                return string.Format("{0}:{1}", mins, secs);
             }
         }
 
@@ -158,6 +244,10 @@ namespace EarthBackgroundRevisedWPF
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
                 updateTask = EarthBackground.update(selectedSite);
+            }
+            else
+            {
+                timer.Start();
             }
         }
 
