@@ -105,6 +105,13 @@ namespace EarthBackgroundRevisedWPF
             {
                 EarthBackground = new EarthBackgroundCore(res, filePath);
             }
+            else if(updateTask != null)
+            {
+                if(updateTask.Status == TaskStatus.Running)
+                {
+                    updateTask.Wait();
+                }
+            }
         }
 
         private void changeTimerOptions()
@@ -299,12 +306,20 @@ namespace EarthBackgroundRevisedWPF
                 clearImage();
                 updateTask = EarthBackground.update(selectedSite, forceUpdate);
             }
+            else
+            {
+                timer.Start();
+            }
         }
 
         private void EarthBackgroundCore_UpdateComplete(object sender, EarthBackgroundCore.UpdateCompleteEventArgs e)
         {
             timer.Start();
             DateTime updateTime = DateTime.Now;
+            Dispatcher.Invoke(() =>
+            {
+                DownloadAttemptTextBlock.Text = updateTime.ToShortTimeString();
+            });
             EarthBackgroundCore.UpdateComplete -= EarthBackgroundCore_UpdateComplete;
             EarthBackgroundCore.DownloadStatusChanged -= Update_Progressed;
             Console.WriteLine("update complete exit code: {0}", updateTask.Result);
@@ -450,6 +465,14 @@ namespace EarthBackgroundRevisedWPF
         private void ResSelectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             res = resOptions[ResSelectionComboBox.SelectedIndex];
+            if (updateTask != null)
+            {
+                if (updateTask.Status == TaskStatus.Running)
+                {
+                    updateTask.Wait();
+                }
+            }
+            EarthBackground = new EarthBackgroundCore(res, filePath);
             saveSettings();
         }
 

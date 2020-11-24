@@ -40,14 +40,21 @@ namespace EarthBackgroundRevisedWPF
             Task<bool> task = (Task<bool>)obj;
             task.Wait();
             PreUpdateComplete?.Invoke(null, new EventArgs());
-            switch (task.Result)
+            if (task.Exception == null)
             {
-                case true:
-                    RaiseUpdateCompleteEvent("Update completed succesfully");
-                    break;
-                case false:
-                    RaiseUpdateCompleteEvent("No new images avaliable");
-                    break;
+                switch (task.Result)
+                {
+                    case true:
+                        RaiseUpdateCompleteEvent("Update completed succesfully");
+                        break;
+                    case false:
+                        RaiseUpdateCompleteEvent("No new images avaliable");
+                        break;
+                }
+            }
+            else
+            {
+                RaiseUpdateCompleteEvent("Exception thrown");
             }
         };
 
@@ -387,10 +394,34 @@ namespace EarthBackgroundRevisedWPF
         private static Func<Uri, MemoryStream> downloadImageToMemStream = new Func<Uri, MemoryStream>((Uri url) =>
         {
             MemoryStream output;
-            using(WebClient client = new WebClient())
+            bool faild = true;
+            int tryCounter = 0;
+            do
             {
-                output = new MemoryStream(client.DownloadData(url));
-            }
+                try
+                {
+                    using (WebClient client = new WebClient())
+                    {
+                        output = new MemoryStream(client.DownloadData(url));
+                    }
+                    faild = false;
+                }
+                catch (WebException e)
+                {
+                    faild = true;
+                    tryCounter++;
+                    if(tryCounter >= 10)
+                    {
+                        Console.WriteLine("Image Download Failed. Max tries reached. Throwing Error. URL: {0}", url.ToString());
+                        throw new System.Net.WebException(string.Format("Image Download Failed. URL: {0}", url.ToString()), e.Status);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Image Download Failed. Try {0}. Trying again. URL: {1}", tryCounter, url.ToString());
+                    }
+                    output = null;
+                }
+            } while (faild);
             return output;
         });
 

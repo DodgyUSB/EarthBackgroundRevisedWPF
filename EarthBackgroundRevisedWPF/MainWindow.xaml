@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:EarthBackgroundRevisedWPF"
         mc:Ignorable="d"
-        Title="Earth Background Settigns" Height="274.387" Width="500.191" ResizeMode="NoResize" Visibility="Visible" ShowInTaskbar="False">
+        Title="Earth Background Settigns" Height="274.387" Width="500.191" ResizeMode="NoResize" Visibility="Hidden" ShowInTaskbar="False">
     <Grid>
         <TextBox x:Name="SavePathInputTextBox" MinWidth="100" Height="20" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="20,20,80,0"/>
         <Button x:Name="BrowseBtn" Content="Browse" Width="60" Height="20" HorizontalAlignment="right" VerticalAlignment="Top" Margin="405,20,20,0" Click="BrowseBtn_Click"/>
@@ -91,6 +91,8 @@
                 <TextBlock x:Name="ImageTakenTextBlock" HorizontalAlignment="left" Grid.Row="0" Grid.Column="1"/>
                 <TextBlock HorizontalAlignment="Left"  TextWrapping="Wrap" Text="Downloaded: " VerticalAlignment="Top" Grid.Row="1"/>
                 <TextBlock x:Name="ImageDownloadedTextBlock" HorizontalAlignment="left" Grid.Row="1" Grid.Column="1"/>
+                <TextBlock HorizontalAlignment="Left"  TextWrapping="Wrap" Text="Last Attempt: " VerticalAlignment="Top" Grid.Row="2"/>
+                <TextBlock x:Name="DownloadAttemptTextBlock" HorizontalAlignment="left" Grid.Row="2" Grid.Column="1" Text="No update since start"/>
             </Grid>
         </Grid>
     </Grid>
