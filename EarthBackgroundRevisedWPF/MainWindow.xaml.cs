@@ -92,6 +92,7 @@ namespace EarthBackgroundRevisedWPF
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
+            Update();
         }
 
         private void MainWindow_sessionEnded(object sender, Microsoft.Win32.SessionEndedEventArgs e)

@@ -305,13 +305,16 @@ namespace EarthBackgroundRevisedWPF
         private static string getLatestStoredCode(string folderPath)
         {
             string largest = "0";
-            DirectoryInfo direct = new DirectoryInfo(folderPath);
-            foreach (FileInfo file in direct.GetFiles())
+            if (Directory.Exists(folderPath))
             {
-                string currentCode = getCodeFromPath(file.Name);
-                if (Convert.ToInt64(currentCode) > Convert.ToInt64(largest))
+                DirectoryInfo direct = new DirectoryInfo(folderPath);
+                foreach (FileInfo file in direct.GetFiles())
                 {
-                    largest = currentCode;
+                    string currentCode = getCodeFromPath(file.Name);
+                    if (Convert.ToInt64(currentCode) > Convert.ToInt64(largest))
+                    {
+                        largest = currentCode;
+                    }
                 }
             }
             return largest;
