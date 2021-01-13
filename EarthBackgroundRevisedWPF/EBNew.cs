@@ -9,6 +9,5 @@ namespace EarthBackgroundRevisedWPF
     class EBNew
     {
 
-        public class imageComplete
     }
 }

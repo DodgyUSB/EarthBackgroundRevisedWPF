@@ -301,6 +301,22 @@ namespace EarthBackgroundRevisedWPF
             }
         }
 
+        private void UpdateWPF(bool forceUpdate)
+        {
+            timer.Stop();
+            currentTick = 0;
+            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
+            {
+                EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
+                EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
+                clearImage();
+                DrawingImage di = new DrawingImage(EarthBackground.CurrentImageGroup);
+                di.Freeze();
+                LastImage.Source = di;
+                updateTask = EarthBackground.updateWPF(selectedSite, forceUpdate);
+            }
+        }
+
         private void EarthBackgroundCore_UpdateComplete(object sender, EarthBackgroundCore.UpdateCompleteEventArgs e)
         {
             timer.Start();
