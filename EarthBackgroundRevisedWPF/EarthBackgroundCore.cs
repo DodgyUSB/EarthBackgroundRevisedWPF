@@ -15,11 +15,16 @@ using System.Diagnostics;
 using Path = System.IO.Path;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Image = System.Drawing.Image;
+using Color = System.Drawing.Color;
 
 namespace EarthBackgroundRevisedWPF
 {
     class EarthBackgroundCore
     {
+        private static double transparencyVal = 0.5;
         private int _Res;
         private string _FilePath;
         private Task<bool> activeUpdate;
@@ -34,6 +39,7 @@ namespace EarthBackgroundRevisedWPF
         private DateTime latestImageCaptureTimeUTC; //this one is for temporary storage so if the download is cut short the new time is not recorded.
         private Task updateWaiter;
         volatile List<int> mergeTimes = new List<int>();
+        public DrawingGroup currentImage;
 
         private Action<object> waitForTask = (object obj) =>
         {
@@ -171,56 +177,73 @@ namespace EarthBackgroundRevisedWPF
             raiseDownloadStatusChangedEvent(string.Format("Downloading", _CompletedSubimages), percentage);
         }
 
+        //this could be changed to read from a file in the future
+        private static (int, int) siteImageInfo(siteOption siteSelection)
+        {
+            switch (siteSelection)
+            {
+                case siteOption.Himawari:
+                    return (1, 550);
+                case siteOption.rammbSlider:
+                    return (3, 688);
+                case siteOption.HimawariBanded:
+                    return (3, 550);
+                default:
+                    return (0, 0);
+            }
+        }
+
         private Func<siteOption, int, string, bool, bool> updateFunc = new Func<siteOption, int, string, bool, bool>((siteOption siteSelection, int res, string filePath, bool force) =>
         {
+            // misc timimg and stuff
             raiseDownloadStatusChangedEvent("Update Starting", 0);
             Stopwatch stopwatch = new Stopwatch();
             Console.WriteLine("Starting stopwatch");
             stopwatch.Start();
+            //
+            //variable setup
+            (int, int) imageInfo;
             int bands = 1;
             int subImageSize = 0;
-            Queue<MemoryStream> streams = new Queue<MemoryStream>();
-            List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>();
-            switch (siteSelection)
-            {
-                case siteOption.Himawari:
-                    bands = 1;
-                    subImageSize = 550;
-                    break;
-                case siteOption.rammbSlider:
-                    bands = 3;
-                    subImageSize = 688;
-                    break;
-                case siteOption.HimawariBanded:
-                    bands = 3;
-                    subImageSize = 550;
-                    break;
-            }
-            DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            Queue<MemoryStream> streams = new Queue<MemoryStream>(); //holds downloaded images as streams after download
+            List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>(); //holds the download tasks
+            //
+            imageInfo = siteImageInfo(siteSelection); //get the image data
+            //store the image data
+            bands = imageInfo.Item1; 
+            subImageSize = imageInfo.Item2;
+            //
+            //get next image + misc
+            DateTime ImageTime = getNextAvaliableTime(siteSelection, res); //find the image time of the latest avaliable image to download
             ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
             Console.WriteLine("Image found at time: {0}", ImageTime);
             raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
             Console.WriteLine("DownloadStatusChangedEvent raised");
-            if ((Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath))) || force)
+            //
+            if ((Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath))) || force) //check if the latest image is newer than the last downloaded image or if the update is being forced
             {
+                //misc
                 raiseDownloadStatusChangedEvent("Download starting", 0);
                 Console.WriteLine("status change - download starting");
+                //
+                // calc full image size
                 int imageSize = res * subImageSize;
                 Queue<Bitmap> bitmaps = new Queue<Bitmap>();
-                if (bands > 1)
+                if (bands > 1) //check if multiple bands are used for different download methods
                 {
-                    List<Task<(Bitmap, long)>> MergeTasks = new List<Task<(Bitmap, long)>>();
+                    List<Task<(Bitmap, long)>> MergeTasks = new List<Task<(Bitmap, long)>>(); //holds the merge tasks for the subimages
+                    //loop through all of the subimages
                     for (int x = 0; x < res; x++)
                     {
                         for (int y = 0; y < res; y++)
                         {
                             Console.WriteLine("Starting download of Image {0}-{1}", x, y);
-                            Uri R = buildURL(siteSelection, ImageTime, x, y, res, 2);
-                            Uri G = buildURL(siteSelection, ImageTime, x, y, res, 1);
-                            Uri B = buildURL(siteSelection, ImageTime, x, y, res, 0);
-                            Task<(Bitmap, long)> currentMerge = new Task<(Bitmap, long)>(() => DownloadCombinedBandedSubImage(R, G, B));
-                            MergeTasks.Add(currentMerge);
-                            currentMerge.Start();
+                            Uri R = buildURL(siteSelection, ImageTime, x, y, res, 2); //get the r url
+                            Uri G = buildURL(siteSelection, ImageTime, x, y, res, 1); //get the g url
+                            Uri B = buildURL(siteSelection, ImageTime, x, y, res, 0); //get the b url
+                            Task<(Bitmap, long)> currentMerge = new Task<(Bitmap, long)>(() => DownloadCombinedBandedSubImage(R, G, B)); //download and merge images in single task
+                            MergeTasks.Add(currentMerge); //add the task to the list
+                            currentMerge.Start(); //begin the task
                         }
                     }
                     Console.WriteLine("waiting for Merging to complete");
@@ -392,6 +415,21 @@ namespace EarthBackgroundRevisedWPF
                 output = new MemoryStream(client.DownloadData(url));
             }
             return output;
+        });
+
+        private static Action<Uri, int, int, int, DrawingGroup, bool> downloadImageToDrawingGroup = new Action<Uri, int, int, int, DrawingGroup, bool>((Uri url, int xPos, int yPos, int imageSize, DrawingGroup currentImage, bool opaque) =>
+        {
+            DrawingGroup subImageGroup = new DrawingGroup();
+            ImageDrawing subImage = new ImageDrawing(
+                new BitmapImage(url),
+                new System.Windows.Rect(xPos, yPos, imageSize, imageSize)
+                );
+            subImageGroup.Children.Add(subImage);
+            if (!opaque)
+            {
+                subImageGroup.Opacity = transparencyVal;
+            }
+            currentImage.Children.Add(subImageGroup);
         });
 
         private static Func<Bitmap, int[,]> getPixelBrightness = new Func<Bitmap, int[,]>((Bitmap image) =>

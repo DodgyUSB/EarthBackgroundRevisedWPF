@@ -67,6 +67,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="EBNew.cs" />
     <Compile Include="Settings.cs" />
     <Page Include="CustomTimeWindow.xaml">
       <SubType>Designer</SubType>
