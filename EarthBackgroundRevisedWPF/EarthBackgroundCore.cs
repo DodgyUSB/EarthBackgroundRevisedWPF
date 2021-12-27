@@ -14,7 +14,13 @@ using System.Threading;
 using System.Diagnostics;
 using Path = System.IO.Path;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
+using System.Reflection;
+using MediaBrush = System.Windows.Media.Brush;
 
 namespace EarthBackgroundRevisedWPF
 {
@@ -106,7 +112,7 @@ namespace EarthBackgroundRevisedWPF
              if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
              {
                 _CompletedSubimages = 0;
-                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath, false));
+                activeUpdate = new Task<bool>(() => updateFuncHWAccelerated(option, _Res, _FilePath, false));
                 SubImageComplete += EarthBackgroundCore_SubImagecomplete;
                 ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
                 activeUpdate.Start();
@@ -127,7 +133,7 @@ namespace EarthBackgroundRevisedWPF
             if (activeUpdate == null || activeUpdate.Status != TaskStatus.Running)
             {
                 _CompletedSubimages = 0;
-                activeUpdate = new Task<bool>(() => updateFunc(option, _Res, _FilePath, forceUpdate));
+                activeUpdate = new Task<bool>(() => updateFuncHWAccelerated(option, _Res, _FilePath, forceUpdate));
                 SubImageComplete += EarthBackgroundCore_SubImagecomplete;
                 ImageTimeFound += EarthBackgroundCore_ImageTimeFound;
                 activeUpdate.Start();
@@ -302,6 +308,140 @@ namespace EarthBackgroundRevisedWPF
             }
         });
 
+        private Func<siteOption, int, string, bool, bool> updateFuncHWAccelerated = new Func<siteOption, int, string, bool, bool>((siteOption siteSelection, int res, string filePath, bool force) =>
+        {
+            raiseDownloadStatusChangedEvent("Update Starting", 0);
+            Stopwatch stopwatch = new Stopwatch();
+            Console.WriteLine("Starting stopwatch");
+            stopwatch.Start();
+            int bands = 1;
+            int subImageSize = 0;
+            Queue<MemoryStream> streams = new Queue<MemoryStream>();
+            List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>();
+            switch (siteSelection)
+            {
+                case siteOption.Himawari:
+                    bands = 1;
+                    subImageSize = 550;
+                    break;
+                case siteOption.rammbSlider:
+                    bands = 3;
+                    subImageSize = 688;
+                    break;
+                case siteOption.HimawariBanded:
+                    bands = 3;
+                    subImageSize = 550;
+                    break;
+            }
+            DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
+            Console.WriteLine("Image found at time: {0}", ImageTime);
+            raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
+            Console.WriteLine("DownloadStatusChangedEvent raised");
+            if ((Convert.ToInt64(getFileCode(ImageTime)) > Convert.ToInt64(getLatestStoredCode(filePath))) || force)
+            {
+                raiseDownloadStatusChangedEvent("Download starting", 0);
+                Console.WriteLine("status change - download starting");
+                int imageSize = res * subImageSize;
+                Queue<ImageDrawing> bitmaps = new Queue<ImageDrawing>();
+                if (bands > 1)
+                {
+                    List<Task<(ImageDrawing, long)>> MergeTasks = new List<Task<(ImageDrawing, long)>>();
+                    for (int x = 0; x < res; x++)
+                    {
+                        for (int y = 0; y < res; y++)
+                        {
+                            Console.WriteLine("Starting download of Image {0}-{1}", x, y);
+                            Uri RUri = buildURL(siteSelection, ImageTime, x, y, res, 2);
+                            Uri GUri = buildURL(siteSelection, ImageTime, x, y, res, 1);
+                            Uri BUri = buildURL(siteSelection, ImageTime, x, y, res, 0);
+                            Rect rect = new Rect(x * subImageSize, y * subImageSize, subImageSize, subImageSize);
+                            Task<(ImageDrawing, long)> currentMerge = new Task<(ImageDrawing, long)>(() => DownloadCombinedBandedSubImageHWAccelerated(RUri, GUri, BUri, rect));
+                            MergeTasks.Add(currentMerge);
+                            currentMerge.Start();
+                        }
+                    }
+                    Console.WriteLine("waiting for Merging to complete");
+                    Task.WaitAll(MergeTasks.ToArray());
+                    Console.WriteLine("Merging Complete");
+                    List<long> mergeTimes = new List<long>();
+                    MergeTasks.ForEach(currentTask =>
+                    {
+                        mergeTimes.Add(currentTask.Result.Item2);
+                        bitmaps.Enqueue(currentTask.Result.Item1);
+                        currentTask.Dispose();
+                    });
+                    long averageTime = 0;
+                    mergeTimes.ForEach(currentTime => averageTime += currentTime);
+                    averageTime = averageTime / mergeTimes.Count();
+                    Console.WriteLine("Average merge time: {0}", averageTime);
+                    raiseDownloadStatusChangedEvent("Download Complete", 100);
+                }
+                else
+                {
+                    List<Task<ImageDrawing>> downloads = new List<Task<ImageDrawing>>();
+                    for (int x = 0; x < res; x++)
+                    {
+                        for (int y = 0; y < res; y++)
+                        {
+                            Console.WriteLine("Starting download of Image {0}-{1}", x, y);
+                            Uri currentImageUri = buildURL(siteSelection, ImageTime, x, y, res, 0);
+                            TaskCompletionSource<ImageDrawing> tcs = new TaskCompletionSource<ImageDrawing>();
+                            BitmapImage currentImage = new BitmapImage(currentImageUri);
+                            currentImage.DownloadCompleted += (s, e) => { tcs.TrySetResult(new ImageDrawing(currentImage, new Rect(x * subImageSize, y * subImageSize, subImageSize, subImageSize))); };
+                            downloads.Add(tcs.Task);
+                        }
+                    }
+                    Task.WaitAll(downloads.ToArray());
+                    downloads.ForEach(current =>
+                    {
+                        bitmaps.Enqueue(current.Result);
+                        current.Dispose();
+                    });
+                }
+                raiseDownloadStatusChangedEvent("Stitching", 100);
+                Console.WriteLine("Stitching");
+                DrawingGroup image = new DrawingGroup();
+                foreach(ImageDrawing subImage in bitmaps)
+                {
+                    image.Children.Add(subImage);
+                }
+                image.Freeze();
+                Console.WriteLine("Saving file");
+                clearDirectoy(filePath);
+                string fileName = string.Format("EarthBackground-{0}.png", getFileCode(ImageTime));
+                string fullPath = Path.Combine(filePath, fileName);
+                Console.WriteLine("Saving to path: {0}", fullPath);
+
+                DrawingVisual vis = new DrawingVisual();
+                using (DrawingContext ctx = vis.RenderOpen())
+                {
+                    ctx.DrawDrawing(image);
+                }
+
+                RenderTargetBitmap rtb = new RenderTargetBitmap(imageSize, imageSize, 96, 96, PixelFormats.Default);
+                rtb.Render(vis);
+
+                PngBitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(rtb));
+                using (FileStream fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
+                {
+                    encoder.Save(fileStream);
+                }
+
+
+                stopwatch.Stop();
+                Console.WriteLine("Full time for download and merge: {0}ms", stopwatch.ElapsedMilliseconds);
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("No new image");
+                raiseDownloadStatusChangedEvent("No new images avaliable", 100);
+                return false;
+            }
+        });
+
         private static string getLatestStoredCode(string folderPath)
         {
             string largest = "0";
@@ -349,7 +489,7 @@ namespace EarthBackgroundRevisedWPF
                     for (int y = 0; y < output.Height; y++)
                     {
                         //Console.WriteLine("A = {0}", R.GetPixel(x, y).A);
-                        output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).R, G.GetPixel(x, y).G, B.GetPixel(x, y).B));
+                        output.SetPixel(x, y, System.Drawing.Color.FromArgb(R.GetPixel(x, y).R, G.GetPixel(x, y).G, B.GetPixel(x, y).B));
                     }
                 }
             }
@@ -360,7 +500,7 @@ namespace EarthBackgroundRevisedWPF
                     for (int y = 0; y < output.Height; y++)
                     {
                         //Console.WriteLine("A = {0}", R.GetPixel(x, y).A);
-                        output.SetPixel(x, y, Color.FromArgb(R.GetPixel(x, y).A, G.GetPixel(x, y).A, B.GetPixel(x, y).A));
+                        output.SetPixel(x, y, System.Drawing.Color.FromArgb(R.GetPixel(x, y).A, G.GetPixel(x, y).A, B.GetPixel(x, y).A));
                     }
                 }
             }
@@ -371,6 +511,43 @@ namespace EarthBackgroundRevisedWPF
             //output.Save(string.Format("C:\\Users\\650084\\Pictures\\test\\test 2\\sub{0}.png", DateTime.Now.Ticks));
             return (output, stopwatch.ElapsedMilliseconds);
         });
+
+        private static Func<BitmapImage, BitmapImage, BitmapImage, Rect, (ImageDrawing, long)> mergeImagesHWAccelerated = new Func<BitmapImage, BitmapImage, BitmapImage, Rect, (ImageDrawing, long)>((BitmapImage R, BitmapImage G, BitmapImage B, Rect rect) =>
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            // merge code
+
+            R.Freeze();
+            ImageDrawing combinedImage = new ImageDrawing();
+            combinedImage.ImageSource = R;
+            combinedImage.Rect = new Rect(0,0, rect.Width, rect.Height);
+            combinedImage.Freeze();
+            imageCombiner combiner = new imageCombiner();
+            combiner.R = new ImageBrush(R);
+            combiner.G = new ImageBrush(G);
+            combiner.B = new ImageBrush(B);
+
+            DrawingVisual vis = new DrawingVisual();
+            using (DrawingContext ctx = vis.RenderOpen())
+            {
+                ctx.DrawDrawing(combinedImage);
+            }
+            vis.Effect = combiner;
+            combiner.Freeze();
+
+            RenderTargetBitmap rtb = new RenderTargetBitmap(R.PixelWidth, R.PixelHeight, 96, 96, PixelFormats.Default);
+            rtb.Render(vis);
+
+            ImageDrawing output = new ImageDrawing(rtb, rect);
+            output.Freeze();
+            //
+
+            stopwatch.Stop();
+            return (output, stopwatch.ElapsedMilliseconds);
+        });
+
 
         private static Func<Uri,Uri,Uri, (Bitmap, long)> DownloadCombinedBandedSubImage = new Func<Uri,Uri,Uri, (Bitmap, long)>((Uri R, Uri G, Uri B) =>
         {
@@ -390,6 +567,31 @@ namespace EarthBackgroundRevisedWPF
             Rb.Dispose();
             Gb.Dispose();
             Bb.Dispose();
+            RaiseSubImageCompleteEvent();
+            return output;
+        });
+
+        private static Func<Uri,Uri,Uri, Rect, (ImageDrawing, long)> DownloadCombinedBandedSubImageHWAccelerated = new Func<Uri,Uri,Uri, Rect, (ImageDrawing, long)>((Uri RUri, Uri GUri, Uri BUri, Rect rect) =>
+        {
+            (ImageDrawing, long) output;
+            List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>();
+            downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(RUri)));
+            downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(GUri)));
+            downloadTasks.Add(Task.Factory.StartNew(() => downloadImageToMemStream(BUri)));
+            Task.WaitAll(downloadTasks.ToArray());
+            BitmapImage R = new BitmapImage();
+            R.BeginInit();
+            R.StreamSource = downloadTasks[0].Result;
+            R.EndInit();
+            BitmapImage G = new BitmapImage();
+            G.BeginInit();
+            G.StreamSource = downloadTasks[1].Result;
+            G.EndInit();
+            BitmapImage B = new BitmapImage();
+            B.BeginInit();
+            B.StreamSource = downloadTasks[2].Result;
+            B.EndInit();
+            output = mergeImagesHWAccelerated(R, G, B, rect);
             RaiseSubImageCompleteEvent();
             return output;
         });
@@ -649,5 +851,60 @@ namespace EarthBackgroundRevisedWPF
                 TimeImageTaken = timeImageTaken;
             }
         }
+    }
+
+    public class imageCombiner : ShaderEffect
+    {
+        private static PixelShader _pixelShader = new PixelShader() { UriSource = MakePackUri("combinershader.ps") };
+
+        public imageCombiner()
+        {
+            PixelShader = _pixelShader;
+
+            UpdateShaderValue(RInput);
+            UpdateShaderValue(GInput);
+            UpdateShaderValue(BInput);
+        }
+
+        // MakePackUri is a utility method for computing a pack uri
+        // for the given resource. 
+        public static Uri MakePackUri(string relativeFile)
+        {
+            Assembly a = typeof(imageCombiner).Assembly;
+
+            // Extract the short name.
+            string assemblyShortName = a.ToString().Split(',')[0];
+
+            string uriString = "pack://application:,,,/" +
+                assemblyShortName +
+                ";component/" +
+                relativeFile;
+
+            return new Uri(uriString);
+        }
+
+        public MediaBrush R
+        {
+            get { return (MediaBrush)GetValue(RInput); }
+            set { SetValue(RInput, value); }
+        }
+
+        public static readonly DependencyProperty RInput = ShaderEffect.RegisterPixelShaderSamplerProperty("R", typeof(imageCombiner), 0);
+
+        public MediaBrush G
+        {
+            get { return (MediaBrush)GetValue(GInput); }
+            set { SetValue(GInput, value); }
+        }
+
+        public static readonly DependencyProperty GInput = ShaderEffect.RegisterPixelShaderSamplerProperty("G", typeof(imageCombiner), 1);
+
+        public MediaBrush B
+        {
+            get { return (MediaBrush)GetValue(BInput); }
+            set { SetValue(BInput, value); }
+        }
+
+        public static readonly DependencyProperty BInput = ShaderEffect.RegisterPixelShaderSamplerProperty("B", typeof(imageCombiner), 2);
     }
 }

@@ -288,6 +288,18 @@ namespace EarthBackgroundRevisedWPF
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
+                if (updateTask != null)
+                {
+                    if (updateTask.IsCompleted)
+                    {
+                        updateTask.Dispose();
+                    }
+                    else
+                    {
+                        updateTask.Wait();
+                        updateTask.Dispose();
+                    }
+                }
                 updateTask = EarthBackground.update(selectedSite);
             }
             else
@@ -296,15 +308,40 @@ namespace EarthBackgroundRevisedWPF
             }
         }
 
+        private bool running()
+        {
+            if (updateTask != null)
+            {
+                if (!updateTask.IsCompleted)
+                {
+                    Console.WriteLine("Update is already running");
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void Update(bool forceUpdate)
         {
             timer.Stop();
             currentTick = 0;
-            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
+            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null && !running())
             {
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
+                if (updateTask != null)
+                {
+                    if (updateTask.IsCompleted)
+                    {
+                        updateTask.Dispose();
+                    }
+                    else
+                    {
+                        updateTask.Wait();
+                        updateTask.Dispose();
+                    }
+                }
                 updateTask = EarthBackground.update(selectedSite, forceUpdate);
             }
             else
@@ -400,6 +437,18 @@ namespace EarthBackgroundRevisedWPF
         {
             validExit = true;
             saveSettings();
+            if(updateTask != null)
+            {
+                if (updateTask.IsCompleted)
+                {
+                    updateTask.Dispose();
+                }
+                else
+                {
+                    updateTask.Wait();
+                    updateTask.Dispose();
+                }
+            }
             powerChanged -= MainWindow_powerChanged;
             sessionEnded -= MainWindow_sessionEnded;
             Application.Current.Shutdown();
