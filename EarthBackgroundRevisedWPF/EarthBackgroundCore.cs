@@ -210,6 +210,7 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            if (ImageTime.Ticks == 0) return false;
             ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
             Console.WriteLine("Image found at time: {0}", ImageTime);
             raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
@@ -407,8 +408,10 @@ namespace EarthBackgroundRevisedWPF
                     image.Children.Add(subImage);
                 }
                 image.Freeze();
+                raiseDownloadStatusChangedEvent("Saving", 100);
                 Console.WriteLine("Saving file");
                 clearDirectoy(filePath);
+                raiseDownloadStatusChangedEvent("Saving - Dir cleared", 100);
                 string fileName = string.Format("EarthBackground-{0}.png", getFileCode(ImageTime));
                 string fullPath = Path.Combine(filePath, fileName);
                 Console.WriteLine("Saving to path: {0}", fullPath);
@@ -418,20 +421,25 @@ namespace EarthBackgroundRevisedWPF
                 {
                     ctx.DrawDrawing(image);
                 }
+                raiseDownloadStatusChangedEvent("Saving - Vis made", 100);
 
                 RenderTargetBitmap rtb = new RenderTargetBitmap(imageSize, imageSize, 96, 96, PixelFormats.Default);
                 rtb.Render(vis);
+                raiseDownloadStatusChangedEvent("Saving - Target Rendered", 100);
 
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(rtb));
+                raiseDownloadStatusChangedEvent("Saving - Encoder Initialised", 100);
                 using (FileStream fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
                 {
                     encoder.Save(fileStream);
                 }
+                raiseDownloadStatusChangedEvent("Saving - File Saved", 100);
 
 
                 stopwatch.Stop();
                 Console.WriteLine("Full time for download and merge: {0}ms", stopwatch.ElapsedMilliseconds);
+                raiseDownloadStatusChangedEvent("Done", 100);
                 return true;
             }
             else
@@ -747,9 +755,13 @@ namespace EarthBackgroundRevisedWPF
                         tempLine = client.DownloadString(buildURL(option, currentTime, 0, 0, res, 2));
                         valid = true;
                     }
-                    catch
+                    catch(System.Net.WebException e)
                     {
-                        Console.WriteLine("Download Error: possibly 404 trying next time");
+                        Console.WriteLine("Download Error: {0}", e.Message);
+                        if(((HttpWebResponse) e.Response).StatusCode != HttpStatusCode.NotFound)
+                        {
+                            currentTime = new DateTime(0);
+                        }
                     }
                 } while (!valid);
             }

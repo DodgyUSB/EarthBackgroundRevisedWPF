@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -92,7 +94,7 @@ namespace EarthBackgroundRevisedWPF
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
-            Update();
+            //Update();
         }
 
         private void MainWindow_sessionEnded(object sender, Microsoft.Win32.SessionEndedEventArgs e)
@@ -653,4 +655,5 @@ namespace EarthBackgroundRevisedWPF
             Update(true);
         }
     }
+
 }
