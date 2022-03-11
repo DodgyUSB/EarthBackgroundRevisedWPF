@@ -210,6 +210,10 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            if(ImageTime == null)
+            {
+                return false;
+            }
             if (ImageTime.Ticks == 0) return false;
             ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
             Console.WriteLine("Image found at time: {0}", ImageTime);
@@ -335,6 +339,10 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
+            if(ImageTime == null)
+            {
+                return false;
+            }
             ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
             Console.WriteLine("Image found at time: {0}", ImageTime);
             raiseDownloadStatusChangedEvent(string.Format("Latest image found at {0}", ImageTime), 0);
@@ -663,7 +671,7 @@ namespace EarthBackgroundRevisedWPF
                 case siteOption.Himawari:
                     return new Uri(string.Format("https://himawari8-dl.nict.go.jp/himawari8/img/D531106/{0}d/550/{1}/{2}/{3}/{4}_{5}_{6}.png", res, year, month, day, utcTime, x, y));
                 case siteOption.rammbSlider:
-                    return new Uri(string.Format("https://rammb-slider.cira.colostate.edu/data/imagery/{2}{1}{0}/himawari---full_disk/band_{7}/{2}{1}{0}{3}/{4}/{5}_{6}.png", day, month, year, utcTime, addZeros((int)(Math.Log(res,2)), 2), addZeros(y, 3), addZeros(x, 3), addZeros(band, 2)));
+                    return new Uri(string.Format("https://rammb-slider.cira.colostate.edu/data/imagery/{2}/{1}/{0}/himawari---full_disk/band_{7}/{2}{1}{0}{3}/{4}/{5}_{6}.png", day, month, year, utcTime, addZeros((int)(Math.Log(res,2)), 2), addZeros(y, 3), addZeros(x, 3), addZeros(band, 2)));
                 case siteOption.HimawariBanded:
                     return new Uri(string.Format("https://himawari8-dl.nict.go.jp/himawari8/img/FULL_24h/B{7}/{0}d/550/{1}/{2}/{3}/{4}_{5}_{6}.png", res, year, month, day, utcTime, x, y, addZeros(band, 2)));
                 default:
@@ -741,6 +749,8 @@ namespace EarthBackgroundRevisedWPF
             {
                 string tempLine;
                 bool valid = false;
+                int errorCount = 0;
+                const int maxErrorCount = 100;
                 do
                 {
                     try
@@ -762,8 +772,9 @@ namespace EarthBackgroundRevisedWPF
                         {
                             currentTime = new DateTime(0);
                         }
+                        errorCount++;
                     }
-                } while (!valid);
+                } while (!valid && errorCount < maxErrorCount);
             }
             return currentTime;
         }
