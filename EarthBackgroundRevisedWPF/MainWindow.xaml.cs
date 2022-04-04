@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,6 +26,7 @@ using System.IO;
 using Path = System.IO.Path;
 using Image = System.Drawing.Image;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 //using CContextMenu = System.Windows.Controls.ContextMenu;
 
 namespace EarthBackgroundRevisedWPF
@@ -47,8 +50,6 @@ namespace EarthBackgroundRevisedWPF
         int finalTick = 300;
         public string[] avaliableSites = EarthBackgroundCore.siteOptionNames;
         private EarthBackgroundCore.siteOption selectedSite;
-        private static event Microsoft.Win32.PowerModeChangedEventHandler powerChanged;
-        private static event Microsoft.Win32.SessionEndedEventHandler sessionEnded;
         private bool autoSetBackground;
         private DateTime LastImageCaptureTime;
         private DateTime LastImageDownloadTime;
@@ -60,8 +61,9 @@ namespace EarthBackgroundRevisedWPF
         {
             if (System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location)).Count() > 1) System.Diagnostics.Process.GetCurrentProcess().Kill();
             InitializeComponent();
-            powerChanged += MainWindow_powerChanged;
-            sessionEnded += MainWindow_sessionEnded;
+            SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            Application.Current.SessionEnding += Current_SessionEnding;
+            //sessionEnded += MainWindow_sessionEnded;
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             this.Closing += MainWindow_Closing;
             setParameters();
@@ -92,27 +94,29 @@ namespace EarthBackgroundRevisedWPF
             timer.AutoReset = true;
             timer.Start();
             timerString = "test";
-            Update();
+            //Update();
         }
 
-        private void MainWindow_sessionEnded(object sender, Microsoft.Win32.SessionEndedEventArgs e)
+        private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            ApplicationClose();
-        }
-
-        private void MainWindow_powerChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
-        {
-            if(e.Mode == Microsoft.Win32.PowerModes.Resume)
+            if (e.Mode == Microsoft.Win32.PowerModes.Resume)
             {
                 EarthBackground = new EarthBackgroundCore(res, filePath);
+                timer.Start();
             }
-            else if(updateTask != null)
+            else if (updateTask != null)
             {
-                if(updateTask.Status == TaskStatus.Running)
+                if (updateTask.Status == TaskStatus.Running)
                 {
                     updateTask.Wait();
                 }
+                timer.Stop();
             }
+        }
+
+        private void Current_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+        {
+            ApplicationClose();
         }
 
         private void changeTimerOptions()
@@ -216,12 +220,14 @@ namespace EarthBackgroundRevisedWPF
         private void setTimerLength(int hours, int mins, int secs)
         {
             finalTick = (hours * 1200) + (mins * 60) + secs;
+            saveSettings();
         }
 
         private void setTimerLength(int tick)
         {
             finalTick = tick;
-            currentTick = 0;
+            currentTick = 0; 
+            saveSettings();
         }
 
         private void clearImage()
@@ -288,6 +294,18 @@ namespace EarthBackgroundRevisedWPF
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
+                if (updateTask != null)
+                {
+                    if (updateTask.IsCompleted)
+                    {
+                        updateTask.Dispose();
+                    }
+                    else
+                    {
+                        updateTask.Wait();
+                        updateTask.Dispose();
+                    }
+                }
                 updateTask = EarthBackground.update(selectedSite);
             }
             else
@@ -296,15 +314,40 @@ namespace EarthBackgroundRevisedWPF
             }
         }
 
+        private bool running()
+        {
+            if (updateTask != null)
+            {
+                if (!updateTask.IsCompleted)
+                {
+                    Console.WriteLine("Update is already running");
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void Update(bool forceUpdate)
         {
             timer.Stop();
             currentTick = 0;
-            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null)
+            if (resOptions.Contains(res) && Directory.Exists(filePath) && EarthBackground != null && !running())
             {
                 EarthBackgroundCore.UpdateComplete += EarthBackgroundCore_UpdateComplete;
                 EarthBackgroundCore.DownloadStatusChanged += Update_Progressed;
                 clearImage();
+                if (updateTask != null)
+                {
+                    if (updateTask.IsCompleted)
+                    {
+                        updateTask.Dispose();
+                    }
+                    else
+                    {
+                        updateTask.Wait();
+                        updateTask.Dispose();
+                    }
+                }
                 updateTask = EarthBackground.update(selectedSite, forceUpdate);
             }
             else
@@ -400,8 +443,20 @@ namespace EarthBackgroundRevisedWPF
         {
             validExit = true;
             saveSettings();
-            powerChanged -= MainWindow_powerChanged;
-            sessionEnded -= MainWindow_sessionEnded;
+            if(updateTask != null)
+            {
+                if (updateTask.IsCompleted)
+                {
+                    updateTask.Dispose();
+                }
+                else
+                {
+                    updateTask.Wait();
+                    updateTask.Dispose();
+                }
+            }
+            SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+            Application.Current.SessionEnding -= Current_SessionEnding;
             Application.Current.Shutdown();
         }
 
@@ -443,6 +498,7 @@ namespace EarthBackgroundRevisedWPF
             currentImagePath = Properties.Settings.Default.currentImagePath;
             ImageTakenTextBlock.Text = LastImageCaptureTime.ToString();
             ImageDownloadedTextBlock.Text = LastImageDownloadTime.ToShortTimeString();
+            finalTick =  Properties.Settings.Default.finalTick;
             if (Properties.Settings.Default.timerTickOptions != null)
             {
                 timerOptions = new List<int>(Properties.Settings.Default.timerTickOptions);
@@ -460,6 +516,7 @@ namespace EarthBackgroundRevisedWPF
             Properties.Settings.Default.lastImageDownloadTime = LastImageDownloadTime;
             Properties.Settings.Default.currentImagePath = currentImagePath;
             Properties.Settings.Default.timerTickOptions = timerOptions.ToArray();
+            Properties.Settings.Default.finalTick = finalTick;
             Properties.Settings.Default.Save();
         }
 
@@ -604,4 +661,5 @@ namespace EarthBackgroundRevisedWPF
             Update(true);
         }
     }
+
 }

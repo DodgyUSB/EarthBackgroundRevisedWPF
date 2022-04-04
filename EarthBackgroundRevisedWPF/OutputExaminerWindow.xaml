@@ -1,0 +1,12 @@
+﻿<Window x:Class="EarthBackgroundRevisedWPF.OutputExaminerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:EarthBackgroundRevisedWPF"
+        mc:Ignorable="d"
+        Title="OutputExaminerWindow" Height="450" Width="800">
+    <Grid x:Name="MainGrid">
+        <Image x:Name="MainImage"></Image>
+    </Grid>
+</Window>

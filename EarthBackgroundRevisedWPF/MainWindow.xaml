@@ -47,7 +47,7 @@
             </ComboBox.ToolTip>
         </ComboBox>
         <Button x:Name="ManualUpdateBtn" Content="Manual Update" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="236,0,0,48" Width="90" Click="ManualUpdateBtn_Click" ToolTip="Runs normal update without waiting for timer"/>
-        <Button x:Name="ForceUpdateBtn" Content="Force Update" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="236,0,0,25" Width="90" Click="ForceUpdateBtn_Click" ToolTip="Forces update by ignoring weather the latest avaliable image is new than the current image"/>
+        <Button x:Name="ForceUpdateBtn" Content="Force Update" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="236,0,0,25" Width="90" Click="ForceUpdateBtn_Click" ToolTip="Forces update by ignoring whether the latest avaliable image is new than the current image"/>
         <StatusBar HorizontalAlignment="Stretch" Height="20" VerticalAlignment="Bottom" Width="auto">
             <StatusBarItem Margin="0,0,0,0">
                 <TextBlock Text="Next update:" Margin="0,0,0,0"/>
