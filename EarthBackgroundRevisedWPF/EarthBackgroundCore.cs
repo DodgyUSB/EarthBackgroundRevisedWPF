@@ -210,8 +210,9 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
-            if(ImageTime == null)
+            if(ImageTime.Ticks == 0)
             {
+                raiseDownloadStatusChangedEvent("Error. Download stopping", 100);
                 return false;
             }
             if (ImageTime.Ticks == 0) return false;
@@ -339,8 +340,9 @@ namespace EarthBackgroundRevisedWPF
                     break;
             }
             DateTime ImageTime = getNextAvaliableTime(siteSelection, res);
-            if(ImageTime == null)
+            if(ImageTime.Ticks == 0)
             {
+                raiseDownloadStatusChangedEvent("Error download stopping", 100);
                 return false;
             }
             ImageTimeFound?.Invoke(null, new TimeFoundEventArgs(ImageTime)); //rasie ImageTimeFound event
@@ -418,11 +420,6 @@ namespace EarthBackgroundRevisedWPF
                 image.Freeze();
                 raiseDownloadStatusChangedEvent("Saving", 100);
                 Console.WriteLine("Saving file");
-                clearDirectoy(filePath);
-                raiseDownloadStatusChangedEvent("Saving - Dir cleared", 100);
-                string fileName = string.Format("EarthBackground-{0}.png", getFileCode(ImageTime));
-                string fullPath = Path.Combine(filePath, fileName);
-                Console.WriteLine("Saving to path: {0}", fullPath);
 
                 DrawingVisual vis = new DrawingVisual();
                 using (DrawingContext ctx = vis.RenderOpen())
@@ -438,6 +435,11 @@ namespace EarthBackgroundRevisedWPF
                 PngBitmapEncoder encoder = new PngBitmapEncoder();
                 encoder.Frames.Add(BitmapFrame.Create(rtb));
                 raiseDownloadStatusChangedEvent("Saving - Encoder Initialised", 100);
+                clearDirectoy(filePath);
+                raiseDownloadStatusChangedEvent("Saving - Dir cleared", 100);
+                string fileName = string.Format("EarthBackground-{0}.png", getFileCode(ImageTime));
+                string fullPath = Path.Combine(filePath, fileName);
+                Console.WriteLine("Saving to path: {0}", fullPath);
                 using (FileStream fileStream = new FileStream(fullPath, FileMode.OpenOrCreate, FileAccess.Write))
                 {
                     encoder.Save(fileStream);
@@ -726,7 +728,7 @@ namespace EarthBackgroundRevisedWPF
 
         private static DateTime getNextAvaliableTime(siteOption option, int res)
         {
-            DateTime currentTime = new DateTime(DateTime.UtcNow.Ticks);
+            DateTime currentTime = DateTime.UtcNow;
             //DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
             currentTime.AddMinutes(10);
             switch (option) {
@@ -747,7 +749,7 @@ namespace EarthBackgroundRevisedWPF
         {
             using (WebClient client = new WebClient())
             {
-                string tempLine;
+                byte[] tempData;
                 bool valid = false;
                 int errorCount = 0;
                 const int maxErrorCount = 100;
@@ -758,23 +760,24 @@ namespace EarthBackgroundRevisedWPF
                         currentTime = currentTime.AddMinutes(-10);
                         Console.WriteLine("Checking Time: {0}", currentTime);
                         Console.WriteLine("url: {0}", buildURL(option, currentTime, 0, 0, res, 0));
-                        tempLine = client.DownloadString(buildURL(option, currentTime, 0, 0, res, 0));
+                        tempData = client.DownloadData(buildURL(option, currentTime, 0, 0, res, 0));
                         Console.WriteLine("url: {0}", buildURL(option, currentTime, 0, 0, res, 1));
-                        tempLine = client.DownloadString(buildURL(option, currentTime, 0, 0, res, 1));
+                        tempData = client.DownloadData(buildURL(option, currentTime, 0, 0, res, 1));
                         Console.WriteLine("url: {0}", buildURL(option, currentTime, 0, 0, res, 2));
-                        tempLine = client.DownloadString(buildURL(option, currentTime, 0, 0, res, 2));
+                        tempData = client.DownloadData(buildURL(option, currentTime, 0, 0, res, 2));
                         valid = true;
                     }
                     catch(System.Net.WebException e)
                     {
                         Console.WriteLine("Download Error: {0}", e.Message);
-                        if(((HttpWebResponse) e.Response).StatusCode != HttpStatusCode.NotFound)
-                        {
-                            currentTime = new DateTime(0);
-                        }
                         errorCount++;
                     }
                 } while (!valid && errorCount < maxErrorCount);
+                if (!valid)
+                {
+                    Console.WriteLine("Max tries reached");
+                    return new DateTime(0);
+                }
             }
             return currentTime;
         }
@@ -785,6 +788,8 @@ namespace EarthBackgroundRevisedWPF
             {
                 int currentImageSize;
                 bool invalid = true;
+                int errorCount = 0;
+                int maxErrorCount = 10;
                 do
                 {
                     currentTime = currentTime.AddMinutes(-10);
@@ -814,13 +819,18 @@ namespace EarthBackgroundRevisedWPF
                             }
                         }
                     }
-                    catch
+                    catch(Exception e)
                     {
-                        Console.WriteLine("ERROR");
+                        errorCount++;
+                        Console.WriteLine("ERROR: {0}", e.Message);
                         //currentImageSize = nullImageStringLength;
                         currentTime = currentTime.AddMinutes(10);
                     }
-                } while (invalid);
+                } while (invalid && errorCount < maxErrorCount);
+                if(errorCount >= maxErrorCount)
+                {
+                    return new DateTime(0);
+                }
             }
             return currentTime;
         }
