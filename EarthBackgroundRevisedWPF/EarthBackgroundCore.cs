@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.IO;
@@ -726,23 +726,76 @@ namespace EarthBackgroundRevisedWPF
             return 10 * Math.Floor(number / 10f);
         }
 
+        public class himawariTimeJson
+        {
+            public string date { get; set; }
+        }
+
+        private static DateTime getHimiwariTime(Uri URL)
+        {
+            WebClient client = new WebClient();
+            string json = client.DownloadString(URL);
+            Console.WriteLine("TimeJson: {0}", json);
+            string timeString = JsonSerializer.Deserialize<himawariTimeJson>(json).date;
+            string[] dateTimeArray = timeString.Split(' ');
+            string[] dateArray = dateTimeArray[0].Split('-');
+            string[] timeArray = dateTimeArray[1].Split(':');
+            return new DateTime(int.Parse(dateArray[0]), int.Parse(dateArray[1]), int.Parse(dateArray[2]), int.Parse(timeArray[0]), int.Parse(timeArray[1]), int.Parse(timeArray[2]));
+        }
+
+        public class rammbTimeJson
+        {
+            public long[] timestamps_int { get; set; }
+        }
+
+        private static DateTime getRammbTime(Uri URL)
+        {
+            WebClient Client = new WebClient();
+            string json = Client.DownloadString(URL);
+            long timeNum = JsonSerializer.Deserialize<rammbTimeJson>(json).timestamps_int[0];
+            int year = (int)(timeNum / 10000000000);
+            int month = (int)((timeNum % 10000000000) / 100000000);
+            int day = (int)((timeNum % 100000000) / 1000000);
+            int hour = (int)((timeNum % 1000000) / 10000);
+            int minute = (int)(timeNum % 10000) / 100;
+            int second = (int)timeNum % 100;
+            return new DateTime(year, month, day, hour, minute, second);
+
+        }
+
         private static DateTime getNextAvaliableTime(siteOption option, int res)
         {
-            DateTime currentTime = DateTime.UtcNow;
-            //DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
-            currentTime.AddMinutes(10);
-            switch (option) {
+            DateTime returnTime = new DateTime();
+            switch (option)
+            {
                 case siteOption.Himawari:
-                    currentTime = checkImage(option, currentTime, res, nullImageStringLength);
-                    break;
-                case siteOption.rammbSlider:
-                    currentTime = checkImage(option, currentTime, res);
+                    returnTime = getHimiwariTime(new Uri("https://himawari8.nict.go.jp/img/D531106/latest.json"));
                     break;
                 case siteOption.HimawariBanded:
-                    currentTime = checkImage(option, currentTime, res, nullImageStringLength);
+                    returnTime = getHimiwariTime(new Uri("https://himawari8.nict.go.jp/img/FULL_24h/latest.json"));
+                    break;
+                case siteOption.rammbSlider:
+                    returnTime = getRammbTime(new Uri("https://rammb-slider.cira.colostate.edu/data/json/himawari/full_disk/band_01/latest_times.json"));
                     break;
             }
-            return currentTime;
+            Console.WriteLine("option: {1} nextTime: {0}", returnTime, option);
+            return returnTime;
+            
+            //DateTime currentTime = DateTime.UtcNow;
+            ////DateTime currentTime = new DateTime(2020, 9, 5, 0, 0, 0);
+            //currentTime.AddMinutes(10);
+            //switch (option) {
+            //    case siteOption.Himawari:
+            //        currentTime = checkImage(option, currentTime, res, nullImageStringLength);
+            //        break;
+            //    case siteOption.rammbSlider:
+            //        currentTime = checkImage(option, currentTime, res);
+            //        break;
+            //    case siteOption.HimawariBanded:
+            //        currentTime = checkImage(option, currentTime, res, nullImageStringLength);
+            //        break;
+            //}
+            //return currentTime;
         }
 
         private static DateTime checkImage(siteOption option, DateTime currentTime, int res)
