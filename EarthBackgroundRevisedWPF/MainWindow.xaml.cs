@@ -25,7 +25,6 @@ using Timer = System.Timers.Timer;
 using System.IO;
 using Path = System.IO.Path;
 using Image = System.Drawing.Image;
-using System.Runtime.InteropServices;
 using Microsoft.Win32;
 //using CContextMenu = System.Windows.Controls.ContextMenu;
 
@@ -89,7 +88,7 @@ namespace EarthBackgroundRevisedWPF
             {
                 setImage(EarthBackground.getLatestImagePath());
             }
-                timer = new Timer(1000);
+            timer = new Timer(1000);
             timer.Elapsed += Timer_Elapsed;
             timer.AutoReset = true;
             timer.Start();
@@ -99,18 +98,21 @@ namespace EarthBackgroundRevisedWPF
 
         private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
-            if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+            switch (e.Mode)
             {
-                EarthBackground = new EarthBackgroundCore(res, filePath);
-                timer.Start();
-            }
-            else if (updateTask != null)
-            {
-                if (updateTask.Status == TaskStatus.Running)
-                {
-                    updateTask.Wait();
-                }
-                timer.Stop();
+                case PowerModes.Resume:
+                    EarthBackground = new EarthBackgroundCore(res, filePath);
+                    timer.Start();
+                    break;
+
+                case PowerModes.Suspend:
+                    if (updateTask.Status == TaskStatus.Running)
+                    {
+                        updateTask.Wait();
+                    }
+                    timer.Stop();
+                    currentTick = 0;
+                    break;
             }
         }
 
