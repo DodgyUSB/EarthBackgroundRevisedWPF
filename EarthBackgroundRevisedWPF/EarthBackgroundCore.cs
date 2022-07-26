@@ -40,6 +40,8 @@ namespace EarthBackgroundRevisedWPF
         private DateTime latestImageCaptureTimeUTC; //this one is for temporary storage so if the download is cut short the new time is not recorded.
         private Task updateWaiter;
         volatile List<int> mergeTimes = new List<int>();
+        const double himawariBrightnessfactor = 0.75f;
+        const double defaultBrightness = 1.0f;
 
         private Action<object> waitForTask = (object obj) =>
         {
@@ -357,6 +359,7 @@ namespace EarthBackgroundRevisedWPF
                 Queue<ImageDrawing> bitmaps = new Queue<ImageDrawing>();
                 if (bands > 1)
                 {
+                    double brightness = siteSelection == siteOption.HimawariBanded ? himawariBrightnessfactor : defaultBrightness;
                     List<Task<(ImageDrawing, long)>> MergeTasks = new List<Task<(ImageDrawing, long)>>();
                     for (int x = 0; x < res; x++)
                     {
@@ -367,7 +370,7 @@ namespace EarthBackgroundRevisedWPF
                             Uri GUri = buildURL(siteSelection, ImageTime, x, y, res, 1);
                             Uri BUri = buildURL(siteSelection, ImageTime, x, y, res, 0);
                             Rect rect = new Rect(x * subImageSize, y * subImageSize, subImageSize, subImageSize);
-                            Task<(ImageDrawing, long)> currentMerge = new Task<(ImageDrawing, long)>(() => DownloadCombinedBandedSubImageHWAccelerated(RUri, GUri, BUri, rect));
+                            Task<(ImageDrawing, long)> currentMerge = new Task<(ImageDrawing, long)>(() => DownloadCombinedBandedSubImageHWAccelerated(RUri, GUri, BUri, rect, brightness));
                             MergeTasks.Add(currentMerge);
                             currentMerge.Start();
                         }
@@ -530,7 +533,7 @@ namespace EarthBackgroundRevisedWPF
             return (output, stopwatch.ElapsedMilliseconds);
         });
 
-        private static Func<BitmapImage, BitmapImage, BitmapImage, Rect, (ImageDrawing, long)> mergeImagesHWAccelerated = new Func<BitmapImage, BitmapImage, BitmapImage, Rect, (ImageDrawing, long)>((BitmapImage R, BitmapImage G, BitmapImage B, Rect rect) =>
+        private static Func<BitmapImage, BitmapImage, BitmapImage, Rect, double, (ImageDrawing, long)> mergeImagesHWAccelerated = new Func<BitmapImage, BitmapImage, BitmapImage, Rect, double, (ImageDrawing, long)>((BitmapImage R, BitmapImage G, BitmapImage B, Rect rect, double brightness) =>
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -546,6 +549,7 @@ namespace EarthBackgroundRevisedWPF
             combiner.R = new ImageBrush(R);
             combiner.G = new ImageBrush(G);
             combiner.B = new ImageBrush(B);
+            combiner.Brightness = brightness;
 
             DrawingVisual vis = new DrawingVisual();
             using (DrawingContext ctx = vis.RenderOpen())
@@ -589,7 +593,7 @@ namespace EarthBackgroundRevisedWPF
             return output;
         });
 
-        private static Func<Uri,Uri,Uri, Rect, (ImageDrawing, long)> DownloadCombinedBandedSubImageHWAccelerated = new Func<Uri,Uri,Uri, Rect, (ImageDrawing, long)>((Uri RUri, Uri GUri, Uri BUri, Rect rect) =>
+        private static Func<Uri,Uri,Uri, Rect, double, (ImageDrawing, long)> DownloadCombinedBandedSubImageHWAccelerated = new Func<Uri,Uri,Uri, Rect, double, (ImageDrawing, long)>((Uri RUri, Uri GUri, Uri BUri, Rect rect, double brightness) =>
         {
             (ImageDrawing, long) output;
             List<Task<MemoryStream>> downloadTasks = new List<Task<MemoryStream>>();
@@ -609,7 +613,7 @@ namespace EarthBackgroundRevisedWPF
             B.BeginInit();
             B.StreamSource = downloadTasks[2].Result;
             B.EndInit();
-            output = mergeImagesHWAccelerated(R, G, B, rect);
+            output = mergeImagesHWAccelerated(R, G, B, rect, brightness);
             RaiseSubImageCompleteEvent();
             return output;
         });
@@ -941,7 +945,7 @@ namespace EarthBackgroundRevisedWPF
 
     public class imageCombiner : ShaderEffect
     {
-        private static PixelShader _pixelShader = new PixelShader() { UriSource = MakePackUri("combinershader.ps") };
+        private static PixelShader _pixelShader = new PixelShader() { UriSource = MakePackUri("brightnessShader.cso") };
 
         public imageCombiner()
         {
@@ -950,6 +954,7 @@ namespace EarthBackgroundRevisedWPF
             UpdateShaderValue(RInput);
             UpdateShaderValue(GInput);
             UpdateShaderValue(BInput);
+            UpdateShaderValue(BrightnessProperty);
         }
 
         // MakePackUri is a utility method for computing a pack uri
@@ -992,5 +997,14 @@ namespace EarthBackgroundRevisedWPF
         }
 
         public static readonly DependencyProperty BInput = ShaderEffect.RegisterPixelShaderSamplerProperty("B", typeof(imageCombiner), 2);
+
+        public double Brightness
+        {
+            get { return (double)GetValue(BrightnessProperty); }
+            set { SetValue(BrightnessProperty, value); }
+        }
+
+        public static readonly DependencyProperty BrightnessProperty =
+            DependencyProperty.Register(nameof(Brightness), typeof(double), typeof(imageCombiner), new UIPropertyMetadata(0.0, PixelShaderConstantCallback(0)));
     }
 }
