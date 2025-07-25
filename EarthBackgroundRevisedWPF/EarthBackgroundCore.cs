@@ -895,13 +895,28 @@ namespace EarthBackgroundRevisedWPF
             return currentTime;
         }
 
+
+        // Helper method to determine if the file is an old Earth background image
+        private static bool IsOldEarthBackgroundImage(string filePath)
+        {
+            // Example: Check if the file name contains a specific pattern or date
+            string fileName = Path.GetFileName(filePath);
+
+            // Assuming Earth background images have a date in their name (e.g., "EarthBackground_20231001.png")
+            return fileName.StartsWith("EarthBackground-");
+        }
+
         private static void clearDirectoy(string DirectoryPath)
         {
             foreach(string file in Directory.GetFiles(DirectoryPath))
             {
                 try
                 {
-                    File.Delete(file);
+                    // Check if the file is an old Earth background image
+                    if (IsOldEarthBackgroundImage(file))
+                    {
+                        File.Delete(file);
+                    }
                 }
                 catch(Exception e)
                 {
