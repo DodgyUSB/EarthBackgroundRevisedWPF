@@ -471,10 +471,13 @@ namespace EarthBackgroundRevisedWPF
                 DirectoryInfo direct = new DirectoryInfo(folderPath);
                 foreach (FileInfo file in direct.GetFiles())
                 {
-                    string currentCode = getCodeFromPath(file.Name);
-                    if (Convert.ToInt64(currentCode) > Convert.ToInt64(largest))
+                    if (file.Name.Contains("EarthBackground") && file.Name.EndsWith(".png") && file.Name.Length > 20)
                     {
-                        largest = currentCode;
+                        string currentCode = getCodeFromPath(file.Name);
+                        if (Convert.ToInt64(currentCode) > Convert.ToInt64(largest))
+                        {
+                            largest = currentCode;
+                        }
                     }
                 }
             }
@@ -896,7 +899,14 @@ namespace EarthBackgroundRevisedWPF
         {
             foreach(string file in Directory.GetFiles(DirectoryPath))
             {
-                File.Delete(file);
+                try
+                {
+                    File.Delete(file);
+                }
+                catch(Exception e)
+                {
+
+                }
             }
         }
 
